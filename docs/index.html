@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#10172a">
+  <meta name="color-scheme" content="light">
+  <title>6号機ジャグラー 設定推測ツール</title>
+  <meta name="description" content="総回転数・BB・RB・差枚・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div>
+        <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
+        <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
+        <p class="lead">総回転・BB・RB・差枚・履歴をまとめて判定</p>
+      </div>
+      <div class="header-actions">
+        <button id="loadSample" class="button header-button" type="button">入力例</button>
+        <button id="resetAll" class="button header-button danger-outline" type="button">全消去</button>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tab-nav" aria-label="画面切り替え">
+    <button class="tab-button active" data-tab="input" type="button">入力</button>
+    <button class="tab-button" data-tab="result" type="button">結果</button>
+    <button class="tab-button" data-tab="history" type="button">履歴分析</button>
+    <button class="tab-button" data-tab="about" type="button">仕様</button>
+  </nav>
+
+  <main class="app-shell">
+    <section id="tab-input" class="tab-page active" data-page="input">
+      <div class="page-grid input-grid">
+        <section class="panel summary-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">STEP 1</p>
+              <h2>台データ</h2>
+            </div>
+            <span id="saveStatus" class="status-pill">自動保存</span>
+          </div>
+
+          <div class="field full-field">
+            <label for="machineSelect">機種</label>
+            <select id="machineSelect"></select>
+            <p id="machineNote" class="field-note"></p>
+          </div>
+
+          <div class="quick-stat-grid">
+            <label class="quick-field">
+              <span>総回転数</span>
+              <div class="number-box"><input id="totalGames" inputmode="numeric" type="number" min="0" step="1" placeholder="7371"><em>G</em></div>
+            </label>
+            <label class="quick-field">
+              <span>差枚</span>
+              <div class="number-box"><input id="diffCoins" inputmode="numeric" type="number" step="1" placeholder="600"><em>枚</em></div>
+            </label>
+            <label class="quick-field bb-field">
+              <span>BB</span>
+              <div class="number-box"><input id="bbCount" inputmode="numeric" type="number" min="0" step="1" placeholder="28"><em>回</em></div>
+            </label>
+            <label class="quick-field rb-field">
+              <span>RB</span>
+              <div class="number-box"><input id="rbCount" inputmode="numeric" type="number" min="0" step="1" placeholder="28"><em>回</em></div>
+            </label>
+          </div>
+
+          <div class="live-rates" aria-live="polite">
+            <div><span>BB</span><strong id="liveBB">—</strong></div>
+            <div><span>RB</span><strong id="liveRB">—</strong></div>
+            <div><span>合算</span><strong id="liveCombined">—</strong></div>
+          </div>
+
+          <details class="option-block">
+            <summary>推測条件</summary>
+            <div class="option-content">
+              <div class="field">
+                <label for="priorMode">事前分布</label>
+                <select id="priorMode">
+                  <option value="uniform">均等（設定1〜6を同率）</option>
+                  <option value="hall">ホール想定（低設定寄り）</option>
+                </select>
+              </div>
+              <div class="field range-field">
+                <label for="diffWeight">差枚補正 <strong id="diffWeightValue">20%</strong></label>
+                <input id="diffWeight" type="range" min="0" max="50" step="5" value="20">
+                <p class="field-note">0%はBB・RBのみ。差枚は荒れやすいため初期値は20%です。</p>
+              </div>
+            </div>
+          </details>
+
+          <div id="validationMessage" class="validation hidden" role="alert"></div>
+          <button id="analyzeButton" class="button primary desktop-analyze" type="button">設定を推測する</button>
+        </section>
+
+        <section class="panel history-entry-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">STEP 2・任意</p>
+              <h2>ボーナス履歴</h2>
+            </div>
+            <span id="historyCountBadge" class="status-pill">0件</span>
+          </div>
+
+          <p class="panel-description">当選までのゲーム数を入力し、BIGまたはREGを押します。最終ボーナス後は「現在」を押します。</p>
+
+          <div class="history-entry-display">
+            <span>ゲーム数</span>
+            <strong id="keypadDisplay">0</strong>
+            <em>G</em>
+          </div>
+
+          <div class="keypad" aria-label="ゲーム数入力">
+            <button type="button" data-key="1">1</button>
+            <button type="button" data-key="2">2</button>
+            <button type="button" data-key="3">3</button>
+            <button type="button" data-key="4">4</button>
+            <button type="button" data-key="5">5</button>
+            <button type="button" data-key="6">6</button>
+            <button type="button" data-key="7">7</button>
+            <button type="button" data-key="8">8</button>
+            <button type="button" data-key="9">9</button>
+            <button type="button" class="key-sub" data-key="clear">クリア</button>
+            <button type="button" data-key="0">0</button>
+            <button type="button" class="key-sub" data-key="back">⌫</button>
+          </div>
+
+          <div class="bonus-action-grid">
+            <button id="addBB" class="bonus-button bb" type="button"><strong>BIG</strong><span>履歴に追加</span></button>
+            <button id="addRB" class="bonus-button rb" type="button"><strong>REG</strong><span>履歴に追加</span></button>
+            <button id="setCurrent" class="bonus-button current" type="button"><strong>現在</strong><span>最終後G数</span></button>
+          </div>
+
+          <div class="history-action-row">
+            <button id="deleteLastHistory" class="button soft" type="button">1件戻す</button>
+            <button id="clearHistory" class="button soft danger-text" type="button">履歴を消去</button>
+            <button id="applyHistory" class="button secondary" type="button">集計値へ反映</button>
+          </div>
+          <p id="historyParseStatus" class="field-note"></p>
+
+          <div class="history-list-wrap">
+            <div class="history-list-header">
+              <h3>登録履歴</h3>
+              <label class="switch-label"><input id="reverseHistory" type="checkbox" checked><span>新しい順</span></label>
+            </div>
+            <ol id="historyList" class="history-list"></ol>
+            <p id="historyListEmpty" class="empty-small">履歴はまだありません。</p>
+          </div>
+
+          <details class="option-block import-block">
+            <summary>テキストでまとめて入力・編集</summary>
+            <div class="option-content">
+              <p class="field-note">1行ずつ <code>107 BB</code>、<code>245 RB</code> の形式。順序は古い履歴から入力します。</p>
+              <textarea id="historyInput" rows="8" placeholder="107 BB&#10;88 RB&#10;250 BB"></textarea>
+              <div class="field compact-current">
+                <label for="currentGames">最終ボーナス後の現在G数</label>
+                <div class="number-box"><input id="currentGames" inputmode="numeric" type="number" min="0" step="1" value="0"><em>G</em></div>
+              </div>
+            </div>
+          </details>
+        </section>
+      </div>
+    </section>
+
+    <section id="tab-result" class="tab-page" data-page="result">
+      <section class="panel result-panel" aria-live="polite">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">ANALYSIS</p>
+            <h2>推測結果</h2>
+          </div>
+          <span id="confidenceBadge" class="badge neutral">未計算</span>
+        </div>
+
+        <div id="emptyResult" class="empty-state">
+          <div class="lamp">GOGO!</div>
+          <p>台データを入力して「設定を推測する」を押してください。</p>
+          <button class="button secondary jump-input" type="button">入力画面へ</button>
+        </div>
+
+        <div id="resultContent" class="hidden">
+          <article class="verdict-card">
+            <div class="verdict-copy">
+              <p class="small-label">総合判定</p>
+              <h3 id="verdictTitle">—</h3>
+              <p id="verdictText">—</p>
+            </div>
+            <div class="top-setting">
+              <span>最有力</span>
+              <strong id="topSetting">—</strong>
+              <em id="topProbability">—</em>
+            </div>
+          </article>
+
+          <div class="metric-grid">
+            <article class="metric"><span>BB確率</span><strong id="actualBB">—</strong></article>
+            <article class="metric"><span>RB確率</span><strong id="actualRB">—</strong></article>
+            <article class="metric"><span>合算</span><strong id="actualCombined">—</strong></article>
+            <article class="metric highlight"><span>設定4以上</span><strong id="prob4Plus">—</strong></article>
+            <article class="metric highlight"><span>設定5以上</span><strong id="prob5Plus">—</strong></article>
+            <article class="metric"><span>推定設定平均</span><strong id="expectedSetting">—</strong></article>
+          </div>
+
+          <section class="subpanel">
+            <div class="subpanel-title">
+              <h3>設定別の相対確率</h3>
+              <span id="analysisModeLabel" class="field-note"></span>
+            </div>
+            <div id="probabilityBars" class="probability-bars"></div>
+          </section>
+
+          <section class="subpanel table-section">
+            <h3>実測値と公表スペック</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>設定</th><th>BB</th><th>RB</th><th>合算</th><th>出玉率</th><th>期待差枚</th><th>確率</th></tr></thead>
+                <tbody id="specComparisonBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <div class="result-action-row">
+            <button id="exportCsv" class="button secondary" type="button">結果CSVを保存</button>
+            <button class="button soft jump-input" type="button">入力を修正</button>
+          </div>
+        </div>
+      </section>
+    </section>
+
+    <section id="tab-history" class="tab-page" data-page="history">
+      <section class="panel history-analysis-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">BONUS INTERVAL</p>
+            <h2>履歴・当選区間分析</h2>
+          </div>
+        </div>
+
+        <div id="historyEmpty" class="empty-state compact-empty">
+          <p>履歴を入力すると、100G以内・200G以内などの実績を設定別理論値と比較します。</p>
+          <button class="button secondary jump-input" type="button">履歴を入力</button>
+        </div>
+
+        <div id="historyContent" class="hidden">
+          <div class="history-summary-grid">
+            <article class="metric"><span>履歴件数</span><strong id="historyCount">—</strong></article>
+            <article class="metric"><span>平均当選G</span><strong id="historyAverage">—</strong></article>
+            <article class="metric"><span>最大ハマり</span><strong id="historyMax">—</strong></article>
+            <article class="metric"><span>100G以内率</span><strong id="history100">—</strong></article>
+          </div>
+
+          <div class="chart-card">
+            <canvas id="historyChart" width="1100" height="320" aria-label="ボーナス間隔グラフ"></canvas>
+          </div>
+
+          <section class="subpanel table-section">
+            <h3>G数以内の当選率</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>G数以内</th><th>履歴実績</th><th>設定1</th><th>設定2</th><th>設定3</th><th>設定4</th><th>設定5</th><th>設定6</th></tr></thead>
+                <tbody id="hitProbabilityBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <section id="tab-about" class="tab-page" data-page="about">
+      <section class="panel method-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">METHOD</p>
+            <h2>計算方法と注意点</h2>
+          </div>
+        </div>
+        <div class="method-grid">
+          <article><h3>BB・RB</h3><p>各ゲームをBB・RB・非当選に分け、機種ごとの公表確率に対する尤度を計算します。合算だけでなくBBとRBを別々に評価します。</p></article>
+          <article><h3>差枚</h3><p>公表出玉率から設定別の期待差枚を求め、広い分散を置いた参考尤度として合成します。差枚補正は0〜50%で調整できます。</p></article>
+          <article><h3>履歴</h3><p>100G・200G以内率、平均当選G、最大ハマりを表示します。完全履歴の当選間隔は総回転数と回数にほぼ集約されるため、主判定には二重加点しません。</p></article>
+          <article><h3>限界</h3><p>表示は実設定の確定値ではなく、入力値と各設定スペックの整合度です。低回転では確率が大きく変動します。</p></article>
+        </div>
+        <p class="source-note">外部通信なし。入力内容はこの端末のブラウザ内に保存されます。静的ファイルだけで動作するためGitHub Pagesに配置できます。</p>
+      </section>
+    </section>
+  </main>
+
+  <div class="mobile-bottom-bar">
+    <button id="mobileAnalyzeButton" class="button primary" type="button">設定を推測する</button>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
