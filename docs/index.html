@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
-  <title>6号機ジャグラー 設定推測ツール v6</title>
+  <title>6号機ジャグラー 設定推測ツール v7</title>
   <meta name="description" content="総回転数・BB・RB・差枚・実測小役・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -70,21 +70,64 @@
               <p class="mini-note">左の＋／−で符号を変更</p>
             </div>
 
-            <label class="quick-field bb-field">
-              <span>BB</span>
-              <div class="number-box">
-                <input id="bbCount" inputmode="numeric" type="number" min="0" step="1" value="0">
-                <em>回</em>
-              </div>
-            </label>
+            <input id="bbCount" type="hidden" value="0">
+            <input id="rbCount" type="hidden" value="0">
 
-            <label class="quick-field rb-field">
-              <span>RB</span>
-              <div class="number-box">
-                <input id="rbCount" inputmode="numeric" type="number" min="0" step="1" value="0">
-                <em>回</em>
+            <section class="bonus-breakdown-card bb-breakdown-card">
+              <div class="bonus-breakdown-head">
+                <div>
+                  <span class="bonus-kind-label">BB</span>
+                  <small>BIGボーナス内訳</small>
+                </div>
+                <div class="bonus-total">
+                  <strong id="bbTotalDisplay">0</strong>
+                  <em>回</em>
+                </div>
               </div>
-            </label>
+              <div class="bonus-component-grid">
+                <label class="bonus-component-field">
+                  <span>単独BIG</span>
+                  <input id="singleBBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                </label>
+                <label class="bonus-component-field">
+                  <span>チェリー重複BIG</span>
+                  <input id="cherryBBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                </label>
+                <label class="bonus-component-field unknown-component">
+                  <span>内訳不明BIG</span>
+                  <input id="unknownBBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                </label>
+              </div>
+              <p class="mini-note">単独・重複が分からない回数は「内訳不明」へ入力します。</p>
+            </section>
+
+            <section class="bonus-breakdown-card rb-breakdown-card">
+              <div class="bonus-breakdown-head">
+                <div>
+                  <span class="bonus-kind-label">RB</span>
+                  <small>REGボーナス内訳</small>
+                </div>
+                <div class="bonus-total">
+                  <strong id="rbTotalDisplay">0</strong>
+                  <em>回</em>
+                </div>
+              </div>
+              <div class="bonus-component-grid">
+                <label class="bonus-component-field">
+                  <span>単独REG</span>
+                  <input id="singleRBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                </label>
+                <label class="bonus-component-field">
+                  <span>チェリー重複REG</span>
+                  <input id="cherryRBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                </label>
+                <label class="bonus-component-field unknown-component">
+                  <span>内訳不明REG</span>
+                  <input id="unknownRBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                </label>
+              </div>
+              <p class="mini-note">単独・重複が分からない回数は「内訳不明」へ入力します。</p>
+            </section>
           </div>
 
           <div class="live-rates" aria-live="polite">
@@ -277,7 +320,7 @@
             <span id="historyCountBadge" class="status-pill">0件</span>
           </div>
 
-          <p class="panel-description">当選までのゲーム数を入力し、BIGまたはREGを押します。最終ボーナス後は「現在」を押します。</p>
+          <p class="panel-description">当選までのゲーム数を入力し、単独BIG・重複BIG・単独REG・重複REGから選びます。最終ボーナス後は「現在」を押します。</p>
 
           <div class="history-entry-display">
             <span>ゲーム数</span>
@@ -300,10 +343,22 @@
             <button type="button" class="key-sub" data-key="back">⌫</button>
           </div>
 
-          <div class="bonus-action-grid">
-            <button id="addBB" class="bonus-button bb" type="button"><strong>BIG</strong><span>履歴に追加</span></button>
-            <button id="addRB" class="bonus-button rb" type="button"><strong>REG</strong><span>履歴に追加</span></button>
-            <button id="setCurrent" class="bonus-button current" type="button"><strong>現在</strong><span>最終後G数</span></button>
+          <div class="history-bonus-action-grid">
+            <button id="addSingleBB" class="bonus-button bb single-bonus" type="button">
+              <strong>単独BIG</strong><span>履歴に追加</span>
+            </button>
+            <button id="addCherryBB" class="bonus-button bb cherry-bonus" type="button">
+              <strong>重複BIG</strong><span>チェリー重複</span>
+            </button>
+            <button id="addSingleRB" class="bonus-button rb single-bonus" type="button">
+              <strong>単独REG</strong><span>履歴に追加</span>
+            </button>
+            <button id="addCherryRB" class="bonus-button rb cherry-bonus" type="button">
+              <strong>重複REG</strong><span>チェリー重複</span>
+            </button>
+            <button id="setCurrent" class="bonus-button current history-current-button" type="button">
+              <strong>現在</strong><span>最終ボーナス後G数</span>
+            </button>
           </div>
 
           <div class="history-action-row">
@@ -325,8 +380,8 @@
           <details class="option-block import-block">
             <summary>テキストでまとめて入力・編集</summary>
             <div class="option-content">
-              <p class="field-note">1行ずつ <code>107 BB</code>、<code>245 RB</code> の形式。古い履歴から入力します。</p>
-              <textarea id="historyInput" rows="8" placeholder="107 BB&#10;88 RB&#10;250 BB"></textarea>
+              <p class="field-note">1行ずつ <code>107 SBB</code>、<code>245 CBB</code>、<code>88 SRB</code>、<code>310 CRB</code> の形式。<code>BB</code>・<code>RB</code>は内訳不明として読み込みます。</p>
+              <textarea id="historyInput" rows="8" placeholder="107 SBB&#10;88 CBB&#10;250 SRB&#10;310 CRB"></textarea>
               <div class="field compact-current">
                 <label for="currentGames">最終ボーナス後の現在G数</label>
                 <div class="number-box"><input id="currentGames" inputmode="numeric" type="number" min="0" step="1" value="0"><em>G</em></div>
@@ -371,22 +426,24 @@
             <article class="metric nearest-metric metric-bb">
               <span>BB確率</span>
               <strong id="actualBB">—</strong>
-              <small id="nearestBB" class="nearest-summary">最接近 —</small>
+              <small id="actualBBBreakdown" class="bonus-result-breakdown">単独0・重複0・不明0</small>
+              <small id="nearestBB" class="nearest-summary">設定 —</small>
             </article>
             <article class="metric nearest-metric metric-rb">
               <span>RB確率</span>
               <strong id="actualRB">—</strong>
-              <small id="nearestRB" class="nearest-summary">最接近 —</small>
+              <small id="actualRBBreakdown" class="bonus-result-breakdown">単独0・重複0・不明0</small>
+              <small id="nearestRB" class="nearest-summary">設定 —</small>
             </article>
             <article class="metric nearest-metric metric-combined">
               <span>合算</span>
               <strong id="actualCombined">—</strong>
-              <small id="nearestCombined" class="nearest-summary">最接近 —</small>
+              <small id="nearestCombined" class="nearest-summary">設定 —</small>
             </article>
             <article class="metric grape-highlight nearest-metric metric-grape">
               <span>ブドウ・小役入力</span>
               <strong id="actualSmallRole">—</strong>
-              <small id="nearestGrape" class="nearest-summary">最接近 —</small>
+              <small id="nearestGrape" class="nearest-summary">設定 —</small>
             </article>
             <article class="metric highlight"><span>設定4以上</span><strong id="prob4Plus">—</strong></article>
             <article class="metric highlight"><span>設定5以上</span><strong id="prob5Plus">—</strong></article>
@@ -441,7 +498,7 @@
             <div class="spec-title-row">
               <div>
                 <h3>実測値と設定別スペック</h3>
-                <p id="nearestSpecSummary" class="field-note nearest-explanation">各実測確率に最も近い設定を色付きで表示します。</p>
+                <p id="nearestSpecSummary" class="field-note nearest-explanation">各実測確率に近い設定を色付きで表示します。</p>
               </div>
               <div class="nearest-legend" aria-label="最接近表示の凡例">
                 <span class="legend-chip legend-bb"><i></i>BB</span>

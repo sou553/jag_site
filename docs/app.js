@@ -120,7 +120,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v6';
+const STORAGE_KEY = 'juggler-setting-analyzer-v7';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -173,7 +173,7 @@ function renderRoleInputs(savedCounts = null) {
   container.innerHTML = '';
 
   const counts = savedCounts || pendingRoleCounts || {};
-  const available = ROLE_ORDER.filter((key) => machine.roles[key]);
+  const available = ROLE_ORDER.filter((key) => machine.roles[key] && machine.roles[key].type !== 'bonus');
 
   available.forEach((key) => {
     const roleData = machine.roles[key];
@@ -214,7 +214,7 @@ function renderRoleInputs(savedCounts = null) {
   }
 
   $('roleDataNote').textContent = available.length
-    ? `${machine.name}で利用できる${available.length}項目を表示しています。入力した項目だけ判定に加えます。`
+    ? `${machine.name}で利用できる${available.length}種類の小役を表示しています。単独・チェリー重複ボーナスはSTEP 1の内訳を自動使用します。`
     : '';
 
   container.querySelectorAll('[data-role-action]').forEach((button) => {
@@ -378,34 +378,147 @@ function normalizeWeights(values) {
 function parseHistory(text) {
   const entries = [];
   const errors = [];
+
   text.split(/\r?\n/).forEach((raw, index) => {
     const line = raw.trim();
     if (!line) return;
+
     const gMatch = line.match(/-?\d[\d,]*/);
     if (!gMatch) {
       errors.push(index + 1);
       return;
     }
+
     const games = Number(gMatch[0].replace(/,/g, ''));
     if (!Number.isFinite(games) || games < 0) {
       errors.push(index + 1);
       return;
     }
-    const upper = line.toUpperCase();
+
+    const upper = line.toUpperCase().replace(/\s+/g, '');
     let type = 'UNKNOWN';
-    if (/\bBB\b|\bBIG\b|(^|[^A-Z])B([^A-Z]|$)/.test(upper)) type = 'BB';
-    else if (/\bRB\b|\bREG\b|(^|[^A-Z])R([^A-Z]|$)/.test(upper)) type = 'RB';
-    entries.push({ games, type, raw: line });
+    let kind = 'unknown';
+
+    if (/SBB|単独(?:BIG|BB)/.test(upper)) {
+      type = 'BB';
+      kind = 'single';
+    } else if (/CBB|(?:チェリー)?重複(?:BIG|BB)|チェリー(?:BIG|BB)/.test(upper)) {
+      type = 'BB';
+      kind = 'cherry';
+    } else if (/SRB|単独(?:REG|RB)/.test(upper)) {
+      type = 'RB';
+      kind = 'single';
+    } else if (/CRB|(?:チェリー)?重複(?:REG|RB)|チェリー(?:REG|RB)/.test(upper)) {
+      type = 'RB';
+      kind = 'cherry';
+    } else if (/\bBB\b|\bBIG\b|(^|[^A-Z])B([^A-Z]|$)/.test(line.toUpperCase())) {
+      type = 'BB';
+      kind = 'unknown';
+    } else if (/\bRB\b|\bREG\b|(^|[^A-Z])R([^A-Z]|$)/.test(line.toUpperCase())) {
+      type = 'RB';
+      kind = 'unknown';
+    }
+
+    entries.push({ games, type, kind, raw: line });
   });
+
   return { entries, errors };
 }
 
+function historyEntryCode(entry) {
+  if (entry.type === 'BB' && entry.kind === 'single') return 'SBB';
+  if (entry.type === 'BB' && entry.kind === 'cherry') return 'CBB';
+  if (entry.type === 'RB' && entry.kind === 'single') return 'SRB';
+  if (entry.type === 'RB' && entry.kind === 'cherry') return 'CRB';
+  if (entry.type === 'BB') return 'BB';
+  if (entry.type === 'RB') return 'RB';
+  return 'UNKNOWN';
+}
+
 function entriesToText(entries) {
-  return entries.map((entry) => `${entry.games} ${entry.type}`).join('\n');
+  return entries.map((entry) => `${entry.games} ${historyEntryCode(entry)}`).join('\n');
 }
 
 function getPriorRawValues() {
   return Array.from({ length: 6 }, (_, index) => clampNumber($(`priorValue${index + 1}`).value, 0, 100));
+}
+
+function readBonusBreakdown() {
+  const values = {
+    singleBB: Math.round(clampNumber($('singleBBCount').value)),
+    cherryBB: Math.round(clampNumber($('cherryBBCount').value)),
+    unknownBB: Math.round(clampNumber($('unknownBBCount').value)),
+    singleRB: Math.round(clampNumber($('singleRBCount').value)),
+    cherryRB: Math.round(clampNumber($('cherryRBCount').value)),
+    unknownRB: Math.round(clampNumber($('unknownRBCount').value))
+  };
+
+  values.bb = values.singleBB + values.cherryBB + values.unknownBB;
+  values.rb = values.singleRB + values.cherryRB + values.unknownRB;
+  return values;
+}
+
+function updateBonusTotals() {
+  const bonus = readBonusBreakdown();
+  $('bbCount').value = String(bonus.bb);
+  $('rbCount').value = String(bonus.rb);
+  $('bbTotalDisplay').textContent = bonus.bb.toLocaleString('ja-JP');
+  $('rbTotalDisplay').textContent = bonus.rb.toLocaleString('ja-JP');
+  return bonus;
+}
+
+function calculateBonusBreakdownEvidence(data, machine) {
+  const logLikelihoods = Array(6).fill(0);
+  const evidence = [];
+
+  const categories = [
+    {
+      type: 'BB',
+      singleCount: data.bonusBreakdown.singleBB,
+      cherryCount: data.bonusBreakdown.cherryBB,
+      totalSpecIndex: 0,
+      singleRole: machine.roles.singleBB,
+      label: 'BIG内訳'
+    },
+    {
+      type: 'RB',
+      singleCount: data.bonusBreakdown.singleRB,
+      cherryCount: data.bonusBreakdown.cherryRB,
+      totalSpecIndex: 1,
+      singleRole: machine.roles.singleRB,
+      label: 'REG内訳'
+    }
+  ];
+
+  categories.forEach((category) => {
+    const knownCount = category.singleCount + category.cherryCount;
+    if (knownCount <= 0 || !category.singleRole) return;
+
+    category.singleRole.denoms.forEach((singleDenominator, index) => {
+      const totalProbability = 1 / machine.specs[index][category.totalSpecIndex];
+      const singleProbability = 1 / singleDenominator;
+      const conditionalSingle = Math.min(
+        1 - 1e-9,
+        Math.max(1e-9, singleProbability / totalProbability)
+      );
+
+      logLikelihoods[index] += binomialLogLikelihood(
+        knownCount,
+        category.singleCount,
+        conditionalSingle
+      );
+    });
+
+    evidence.push({
+      type: category.type,
+      label: category.label,
+      singleCount: category.singleCount,
+      cherryCount: category.cherryCount,
+      knownCount
+    });
+  });
+
+  return { logLikelihoods, evidence };
 }
 
 function getInputs() {
@@ -414,11 +527,14 @@ function getInputs() {
   const priorEnabled = $('usePriorCorrection').checked;
   const games = Math.round(clampNumber($('totalGames').value));
   const manualGamesValue = Math.round(clampNumber($('manualRoleGames').value));
+  const bonusBreakdown = updateBonusTotals();
+
   return {
     machineKey: machineSelect.value,
     games,
-    bb: Math.round(clampNumber($('bbCount').value)),
-    rb: Math.round(clampNumber($('rbCount').value)),
+    bb: bonusBreakdown.bb,
+    rb: bonusBreakdown.rb,
+    bonusBreakdown,
     diff: diffSign * absoluteDiff,
     historyText: $('historyInput').value,
     currentGames: Math.round(clampNumber($('currentGames').value)),
@@ -507,7 +623,12 @@ function calculate(data) {
   });
 
   const priorLogs = data.priors.map((prior) => Math.log(Math.max(prior, 1e-300)));
-  const bonusOnlyPosterior = normalizeLogScores(bonusLogLikelihoods.map((value, index) => value + priorLogs[index]));
+  const bonusBreakdownResult = calculateBonusBreakdownEvidence(data, machine);
+  const bonusOnlyPosterior = normalizeLogScores(
+    bonusLogLikelihoods.map(
+      (value, index) => value + bonusBreakdownResult.logLikelihoods[index] + priorLogs[index]
+    )
+  );
   const roleLogLikelihoods = Array(6).fill(0);
   const usedEvidence = [];
   let grape = { valid: false, message: '小役を使用していません。' };
@@ -559,7 +680,13 @@ function calculate(data) {
   }
 
   const posterior = normalizeLogScores(
-    bonusLogLikelihoods.map((value, index) => value + roleLogLikelihoods[index] + priorLogs[index])
+    bonusLogLikelihoods.map(
+      (value, index) =>
+        value
+        + bonusBreakdownResult.logLikelihoods[index]
+        + roleLogLikelihoods[index]
+        + priorLogs[index]
+    )
   );
   const expectedDiffs = machine.specs.map((spec) => 3 * data.games * (spec[3] / 100 - 1));
 
@@ -567,6 +694,8 @@ function calculate(data) {
     machine,
     posterior,
     bonusOnlyPosterior,
+    bonusBreakdownEvidence: bonusBreakdownResult.evidence,
+    bonusBreakdownLogLikelihoods: bonusBreakdownResult.logLikelihoods,
     roleLogLikelihoods,
     usedEvidence,
     grape,
@@ -654,12 +783,12 @@ function setNearestMetricSummary(elementId, indexes, available = true) {
   if (!element) return;
 
   if (!available || !indexes.length) {
-    element.textContent = '最接近 判定なし';
+    element.textContent = '判定なし';
     element.classList.add('unavailable');
     return;
   }
 
-  element.textContent = `最接近 ${formatSettingRange(indexes)}`;
+  element.textContent = formatSettingRange(indexes);
   element.classList.remove('unavailable');
 }
 
@@ -669,7 +798,7 @@ function buildSpecMetricCell(value, metricClass, isNearest) {
 
   return `<td class="${classes.join(' ')}">
     <span class="spec-value">${value}</span>
-    ${isNearest ? '<span class="nearest-mark">最接近</span>' : ''}
+
   </td>`;
 }
 
@@ -690,6 +819,10 @@ function renderResult(data, result) {
   $('actualBB').textContent = formatDenominator(data.games, data.bb);
   $('actualRB').textContent = formatDenominator(data.games, data.rb);
   $('actualCombined').textContent = formatDenominator(data.games, data.bb + data.rb);
+  $('actualBBBreakdown').textContent =
+    `単独${data.bonusBreakdown.singleBB}・重複${data.bonusBreakdown.cherryBB}・不明${data.bonusBreakdown.unknownBB}`;
+  $('actualRBBreakdown').textContent =
+    `単独${data.bonusBreakdown.singleRB}・重複${data.bonusBreakdown.cherryRB}・不明${data.bonusBreakdown.unknownRB}`;
 
   const actualDenominators = {
     bb: data.bb > 0 ? data.games / data.bb : null,
@@ -734,7 +867,7 @@ function renderResult(data, result) {
     closestSettings.grape.length ? `ブドウ=${formatSettingRange(closestSettings.grape)}` : null
   ].filter(Boolean);
   $('nearestSpecSummary').textContent = nearestParts.length
-    ? `最接近：${nearestParts.join('、')}。同じ公表値は複数設定を同時表示します。`
+    ? `対応目安：${nearestParts.join('、')}。同じ公表値は複数設定を同時表示します。`
     : '比較できる実測値がありません。';
 
   $('prob4Plus').textContent = formatPercent(verdict.p4);
@@ -751,7 +884,9 @@ function renderResult(data, result) {
   const roleLabel = data.roleMode === 'reverse'
     ? `逆算ブドウ ${Math.round(data.reverseRoleWeight * 100)}%`
     : roleUsed ? `実測小役 ${Math.round(data.manualRoleWeight * 100)}%` : '小役なし';
-  $('analysisModeLabel').textContent = `BB/RB 100% ＋ ${roleLabel}${data.priorEnabled ? ' ＋ 設定配分' : ''}`;
+  const breakdownLabel = result.bonusBreakdownEvidence.length ? ' ＋ 単独/重複内訳' : '';
+  $('analysisModeLabel').textContent =
+    `BB/RB 100%${breakdownLabel} ＋ ${roleLabel}${data.priorEnabled ? ' ＋ 設定配分' : ''}`;
 
   const bars = $('probabilityBars');
   bars.innerHTML = '';
@@ -805,7 +940,7 @@ function renderResult(data, result) {
 
   const bonusOnlyTop = result.bonusOnlyPosterior.indexOf(Math.max(...result.bonusOnlyPosterior)) + 1;
   $('bonusOnlySummary').textContent =
-    `BB/RB＋配分のみ：設定${bonusOnlyTop} ${formatPercent(result.bonusOnlyPosterior[bonusOnlyTop - 1])}`;
+    `${result.bonusBreakdownEvidence.length ? 'BB/RB・内訳' : 'BB/RB'}＋配分のみ：設定${bonusOnlyTop} ${formatPercent(result.bonusOnlyPosterior[bonusOnlyTop - 1])}`;
 
   const tbody = $('specComparisonBody');
   tbody.innerHTML = '';
@@ -897,20 +1032,33 @@ function drawHistoryChart(entries) {
   entries.forEach((entry, index) => {
     const x = margin.left + index * (plotWidth / entries.length) + barGap / 2;
     const barHeight = Math.max(1, (entry.games / maxGames) * plotHeight);
-    context.fillStyle = entry.type === 'BB' ? '#e73243' : entry.type === 'RB' ? '#1f6fe5' : '#8b95a7';
+    const historyColor =
+      entry.type === 'BB' && entry.kind === 'single' ? '#c91f35'
+      : entry.type === 'BB' && entry.kind === 'cherry' ? '#ef6a7c'
+      : entry.type === 'RB' && entry.kind === 'single' ? '#1764be'
+      : entry.type === 'RB' && entry.kind === 'cherry' ? '#54a3e8'
+      : entry.type === 'BB' ? '#9d4050'
+      : entry.type === 'RB' ? '#4e7199'
+      : '#8b95a7';
+    context.fillStyle = historyColor;
     context.fillRect(x, margin.top + plotHeight - barHeight, barWidth, barHeight);
   });
 
   context.fillStyle = '#667085';
   context.fillText('古い ← ボーナス履歴 → 新しい', margin.left, height - 14);
-  context.fillStyle = '#e73243';
-  context.fillRect(width - 210, 12, 12, 12);
-  context.fillStyle = '#475467';
-  context.fillText('BB', width - 192, 22);
-  context.fillStyle = '#1f6fe5';
-  context.fillRect(width - 150, 12, 12, 12);
-  context.fillStyle = '#475467';
-  context.fillText('RB', width - 132, 22);
+  const legendItems = [
+    ['#c91f35', '単独BIG'],
+    ['#ef6a7c', '重複BIG'],
+    ['#1764be', '単独REG'],
+    ['#54a3e8', '重複REG']
+  ];
+  legendItems.forEach(([color, label], index) => {
+    const x = width - 390 + index * 95;
+    context.fillStyle = color;
+    context.fillRect(x, 12, 10, 10);
+    context.fillStyle = '#475467';
+    context.fillText(label, x + 14, 21);
+  });
 }
 
 function setActiveTab(tabName, scrollTop = true) {
@@ -925,11 +1073,10 @@ function setActiveTab(tabName, scrollTop = true) {
 
 function updateLiveRates() {
   const games = Math.round(clampNumber($('totalGames').value));
-  const bb = Math.round(clampNumber($('bbCount').value));
-  const rb = Math.round(clampNumber($('rbCount').value));
-  $('liveBB').textContent = formatDenominator(games, bb);
-  $('liveRB').textContent = formatDenominator(games, rb);
-  $('liveCombined').textContent = formatDenominator(games, bb + rb);
+  const bonus = updateBonusTotals();
+  $('liveBB').textContent = formatDenominator(games, bonus.bb);
+  $('liveRB').textContent = formatDenominator(games, bonus.rb);
+  $('liveCombined').textContent = formatDenominator(games, bonus.bb + bonus.rb);
 }
 
 function updateKeypadDisplay() {
@@ -948,11 +1095,11 @@ function handleKeypad(key) {
   updateKeypadDisplay();
 }
 
-function addHistoryEntry(type) {
+function addHistoryEntry(type, kind = 'unknown') {
   const games = Number(keypadValue);
   if (!Number.isFinite(games) || games < 0) return;
   const parsed = parseHistory($('historyInput').value);
-  parsed.entries.push({ games, type, raw: `${games} ${type}` });
+  parsed.entries.push({ games, type, kind, raw: `${games} ${type}` });
   $('historyInput').value = entriesToText(parsed.entries);
   keypadValue = '0';
   updateKeypadDisplay();
@@ -1028,8 +1175,28 @@ function renderHistoryList(entries) {
   indexed.forEach(({ entry, index }) => {
     const li = document.createElement('li');
     const orderNumber = reverse ? entries.length - index : index + 1;
-    const chipClass = entry.type === 'BB' ? 'bb' : entry.type === 'RB' ? 'rb' : 'unknown';
-    const chipText = entry.type === 'BB' ? 'BIG' : entry.type === 'RB' ? 'REG' : '?';
+    let chipClass = 'unknown';
+    let chipText = '?';
+
+    if (entry.type === 'BB' && entry.kind === 'single') {
+      chipClass = 'single-bb';
+      chipText = '単独BIG';
+    } else if (entry.type === 'BB' && entry.kind === 'cherry') {
+      chipClass = 'cherry-bb';
+      chipText = '重複BIG';
+    } else if (entry.type === 'RB' && entry.kind === 'single') {
+      chipClass = 'single-rb';
+      chipText = '単独REG';
+    } else if (entry.type === 'RB' && entry.kind === 'cherry') {
+      chipClass = 'cherry-rb';
+      chipText = '重複REG';
+    } else if (entry.type === 'BB') {
+      chipClass = 'unknown-bb';
+      chipText = '不明BIG';
+    } else if (entry.type === 'RB') {
+      chipClass = 'unknown-rb';
+      chipText = '不明REG';
+    }
     li.innerHTML = `
       <span class="history-order">${orderNumber}回目</span>
       <strong class="history-games">${entry.games.toLocaleString('ja-JP')}G</strong>
@@ -1070,23 +1237,51 @@ function analyze() {
 
 function applyHistoryToSummary() {
   const parsed = parseHistory($('historyInput').value);
-  const known = parsed.entries.filter((entry) => entry.type !== 'UNKNOWN');
-  const bb = known.filter((entry) => entry.type === 'BB').length;
-  const rb = known.filter((entry) => entry.type === 'RB').length;
-  const games = parsed.entries.reduce((sum, entry) => sum + entry.games, 0) + Math.round(clampNumber($('currentGames').value));
+  const games = parsed.entries.reduce((sum, entry) => sum + entry.games, 0)
+    + Math.round(clampNumber($('currentGames').value));
 
   if (!parsed.entries.length) {
     $('historyParseStatus').textContent = '読み取れる履歴がありません。';
     return;
   }
 
+  const counts = {
+    singleBB: 0,
+    cherryBB: 0,
+    unknownBB: 0,
+    singleRB: 0,
+    cherryRB: 0,
+    unknownRB: 0,
+    unknownType: 0
+  };
+
+  parsed.entries.forEach((entry) => {
+    if (entry.type === 'BB' && entry.kind === 'single') counts.singleBB += 1;
+    else if (entry.type === 'BB' && entry.kind === 'cherry') counts.cherryBB += 1;
+    else if (entry.type === 'BB') counts.unknownBB += 1;
+    else if (entry.type === 'RB' && entry.kind === 'single') counts.singleRB += 1;
+    else if (entry.type === 'RB' && entry.kind === 'cherry') counts.cherryRB += 1;
+    else if (entry.type === 'RB') counts.unknownRB += 1;
+    else counts.unknownType += 1;
+  });
+
   $('totalGames').value = games;
-  if (known.length) {
-    $('bbCount').value = bb;
-    $('rbCount').value = rb;
-  }
-  const unknown = parsed.entries.length - known.length;
-  $('historyParseStatus').textContent = `${parsed.entries.length}件を集計値へ反映${unknown ? `（種別不明${unknown}件）` : ''}${parsed.errors.length ? `・読取失敗 ${parsed.errors.join(',')}行` : ''}`;
+  $('singleBBCount').value = counts.singleBB;
+  $('cherryBBCount').value = counts.cherryBB;
+  $('unknownBBCount').value = counts.unknownBB;
+  $('singleRBCount').value = counts.singleRB;
+  $('cherryRBCount').value = counts.cherryRB;
+  $('unknownRBCount').value = counts.unknownRB;
+
+  const detail =
+    `単独BIG ${counts.singleBB}・重複BIG ${counts.cherryBB}・不明BIG ${counts.unknownBB}`
+    + `／単独REG ${counts.singleRB}・重複REG ${counts.cherryRB}・不明REG ${counts.unknownRB}`;
+
+  $('historyParseStatus').textContent =
+    `${parsed.entries.length}件を集計値へ反映（${detail}）`
+    + `${counts.unknownType ? `・種別不明${counts.unknownType}件` : ''}`
+    + `${parsed.errors.length ? `・読取失敗 ${parsed.errors.join(',')}行` : ''}`;
+
   updateLiveRates();
   saveState();
 }
@@ -1154,8 +1349,12 @@ function collectState() {
   return {
     machineKey: machineSelect.value,
     totalGames: $('totalGames').value,
-    bbCount: $('bbCount').value,
-    rbCount: $('rbCount').value,
+    singleBBCount: $('singleBBCount').value,
+    cherryBBCount: $('cherryBBCount').value,
+    unknownBBCount: $('unknownBBCount').value,
+    singleRBCount: $('singleRBCount').value,
+    cherryRBCount: $('cherryRBCount').value,
+    unknownRBCount: $('unknownRBCount').value,
     diffCoins: diffSign * Math.abs(Number($('diffCoins').value || 0)),
     historyInput: $('historyInput').value,
     currentGames: $('currentGames').value,
@@ -1193,7 +1392,7 @@ function loadState() {
       return;
     }
     if (MACHINES[state.machineKey]) machineSelect.value = state.machineKey;
-    ['totalGames','bbCount','rbCount','historyInput','currentGames','reverseRoleWeight','reverseCherryCapture','manualRoleGames','smallRoleCapture','manualRoleWeight'].forEach((id) => {
+    ['totalGames','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount','historyInput','currentGames','reverseRoleWeight','reverseCherryCapture','manualRoleGames','smallRoleCapture','manualRoleWeight'].forEach((id) => {
       if (state[id] !== undefined && $(id)) $(id).value = state[id];
     });
     if (state.diffCoins !== undefined) {
@@ -1220,8 +1419,8 @@ function loadState() {
 
 function resetAll() {
   const hasData = Number($('totalGames').value) !== 0
-    || Number($('bbCount').value) !== 0
-    || Number($('rbCount').value) !== 0
+    || ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
+      .some((id) => Number($(id).value) !== 0)
     || Number($('diffCoins').value) !== 0
     || $('historyInput').value.trim()
     || Object.values(readRoleCounts()).some((value) => value !== null);
@@ -1230,6 +1429,8 @@ function resetAll() {
   localStorage.removeItem(STORAGE_KEY);
   machineSelect.value = 'neo_im';
   $('totalGames').value = '0';
+  ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
+    .forEach((id) => { $(id).value = '0'; });
   $('bbCount').value = '0';
   $('rbCount').value = '0';
   $('diffCoins').value = '0';
@@ -1273,11 +1474,15 @@ function resetAll() {
 function loadSample() {
   machineSelect.value = 'im_ex';
   $('totalGames').value = '1399';
-  $('bbCount').value = '4';
-  $('rbCount').value = '1';
+  $('singleBBCount').value = '3';
+  $('cherryBBCount').value = '1';
+  $('unknownBBCount').value = '0';
+  $('singleRBCount').value = '1';
+  $('cherryRBCount').value = '0';
+  $('unknownRBCount').value = '0';
   $('diffCoins').value = '566';
   diffSign = -1;
-  $('historyInput').value = '455 BB\n698 RB\n246 BB';
+  $('historyInput').value = '455 SBB\n698 SRB\n246 CBB\n0 SBB\n0 SBB';
   $('currentGames').value = '0';
   $('usePriorCorrection').checked = false;
   $('reverseRoleWeight').value = '25';
@@ -1310,7 +1515,13 @@ function exportCsv() {
     ['機種', result.machine.name],
     ['総回転数', data.games],
     ['BB', data.bb],
+    ['単独BIG', data.bonusBreakdown.singleBB],
+    ['チェリー重複BIG', data.bonusBreakdown.cherryBB],
+    ['内訳不明BIG', data.bonusBreakdown.unknownBB],
     ['RB', data.rb],
+    ['単独REG', data.bonusBreakdown.singleRB],
+    ['チェリー重複REG', data.bonusBreakdown.cherryRB],
+    ['内訳不明REG', data.bonusBreakdown.unknownRB],
     ['差枚', data.diff],
     ['実測BB確率', formatDenominator(data.games, data.bb)],
     ['実測RB確率', formatDenominator(data.games, data.rb)],
@@ -1318,7 +1529,7 @@ function exportCsv() {
     ['小役モード', data.roleMode === 'reverse' ? '差枚で逆算' : '自分で入力'],
     ['設定配分補正', data.priorEnabled ? '使用' : '未使用'],
     [],
-    ['使用小役','回数','計測G','実測確率','捕捉率','証拠強度','最接近設定']
+    ['使用小役','回数','計測G','実測確率','捕捉率','証拠強度','近似設定']
   ];
   result.usedEvidence.forEach((evidence) => {
     rows.push([
@@ -1348,14 +1559,14 @@ function exportCsv() {
     ]);
   });
   rows.push([], ['履歴番号','当選G','種別']);
-  parsed.entries.forEach((entry, index) => rows.push([index + 1, entry.games, entry.type]));
+  parsed.entries.forEach((entry, index) => rows.push([index + 1, entry.games, historyEntryCode(entry)]));
 
   const csv = '\uFEFF' + rows.map((row) => row.map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `juggler_analysis_v4_${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.download = `juggler_analysis_v7_${new Date().toISOString().slice(0, 10)}.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -1392,8 +1603,10 @@ function bindEvents() {
   $('loadSample').addEventListener('click', loadSample);
   $('resetAll').addEventListener('click', resetAll);
   $('exportCsv').addEventListener('click', exportCsv);
-  $('addBB').addEventListener('click', () => addHistoryEntry('BB'));
-  $('addRB').addEventListener('click', () => addHistoryEntry('RB'));
+  $('addSingleBB').addEventListener('click', () => addHistoryEntry('BB', 'single'));
+  $('addCherryBB').addEventListener('click', () => addHistoryEntry('BB', 'cherry'));
+  $('addSingleRB').addEventListener('click', () => addHistoryEntry('RB', 'single'));
+  $('addCherryRB').addEventListener('click', () => addHistoryEntry('RB', 'cherry'));
   $('setCurrent').addEventListener('click', setCurrentFromKeypad);
   $('deleteLastHistory').addEventListener('click', deleteLastHistory);
   $('clearHistory').addEventListener('click', clearHistory);
@@ -1432,12 +1645,13 @@ function bindEvents() {
     saveState();
   });
 
-  ['totalGames','bbCount','rbCount'].forEach((id) => {
-    $(id).addEventListener('input', () => {
-      updateLiveRates();
-      updateRoleRates();
+  ['totalGames','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
+    .forEach((id) => {
+      $(id).addEventListener('input', () => {
+        updateLiveRates();
+        updateRoleRates();
+      });
     });
-  });
   $('historyInput').addEventListener('input', updateHistoryViews);
 
   document.querySelectorAll('input, select, textarea').forEach((element) => {
