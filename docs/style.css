@@ -1091,3 +1091,202 @@ textarea:focus {
     min-height: 38px;
   }
 }
+
+
+/* v6: 各実測確率に最も近い設定を明示 */
+.nearest-metric {
+  position: relative;
+  overflow: hidden;
+}
+.nearest-metric::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: #cbd3df;
+}
+.metric-bb::after { background: #e73243; }
+.metric-rb::after { background: #2576df; }
+.metric-combined::after { background: #d99116; }
+.metric-grape::after { background: #159064; }
+
+.nearest-summary {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-top: 7px;
+  padding: 3px 8px;
+  border: 1px solid #d6dde7;
+  border-radius: 999px;
+  background: #fff;
+  color: #526075;
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1.35;
+}
+.metric-bb .nearest-summary {
+  border-color: #f0bbc2;
+  background: #fff4f5;
+  color: #aa2637;
+}
+.metric-rb .nearest-summary {
+  border-color: #bdd4f3;
+  background: #f2f7ff;
+  color: #175cae;
+}
+.metric-combined .nearest-summary {
+  border-color: #ead29c;
+  background: #fff8e8;
+  color: #93600b;
+}
+.metric-grape .nearest-summary {
+  border-color: #b9dfcf;
+  background: #effaf5;
+  color: #0f704c;
+}
+.nearest-summary.unavailable {
+  border-color: #d9dee6;
+  background: #f6f7f9;
+  color: #8992a1;
+}
+
+.spec-title-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.spec-title-row h3 {
+  margin-bottom: 2px;
+}
+.nearest-explanation {
+  margin-top: 2px;
+}
+.nearest-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 25px;
+  padding: 3px 8px;
+  border: 1px solid #d8dee7;
+  border-radius: 999px;
+  background: #fff;
+  color: #586478;
+  font-size: 10px;
+  font-weight: 850;
+}
+.legend-chip i {
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: #cbd3df;
+}
+.legend-bb i { background: #e73243; }
+.legend-rb i { background: #2576df; }
+.legend-combined i { background: #d99116; }
+.legend-grape i { background: #159064; }
+
+.spec-comparison-table td {
+  position: relative;
+  transition: background .15s, box-shadow .15s;
+}
+.spec-metric-cell {
+  min-width: 118px;
+}
+.spec-value {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.nearest-cell {
+  font-weight: 900;
+  z-index: 1;
+}
+.nearest-cell::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  pointer-events: none;
+}
+.nearest-bb {
+  background: #fff0f2 !important;
+  color: #9d2031;
+}
+.nearest-bb::before { border-color: #e73243; }
+.nearest-rb {
+  background: #edf5ff !important;
+  color: #145cae;
+}
+.nearest-rb::before { border-color: #2576df; }
+.nearest-combined {
+  background: #fff7e4 !important;
+  color: #8c5b08;
+}
+.nearest-combined::before { border-color: #d99116; }
+.nearest-grape {
+  background: #edf9f4 !important;
+  color: #0e704b;
+}
+.nearest-grape::before { border-color: #159064; }
+
+.nearest-mark {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 950;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+.nearest-mark::before {
+  content: "●";
+  font-size: 7px;
+}
+.nearest-bb .nearest-mark { background: #e73243; }
+.nearest-rb .nearest-mark { background: #2576df; }
+.nearest-combined .nearest-mark { background: #c9820d; }
+.nearest-grape .nearest-mark { background: #159064; }
+
+.best-row td:first-child,
+.best-row td:nth-last-child(1) {
+  background: #fff4ce;
+  font-weight: 900;
+}
+.best-row .nearest-cell {
+  background: inherit;
+}
+
+@media (max-width: 700px) {
+  .spec-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .nearest-legend {
+    justify-content: flex-start;
+  }
+  .spec-metric-cell {
+    min-width: 105px;
+  }
+}
+
+@media (max-width: 430px) {
+  .nearest-summary {
+    padding: 3px 6px;
+    font-size: 9px;
+  }
+}

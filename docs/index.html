@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
-  <title>6号機ジャグラー 設定推測ツール v5</title>
+  <title>6号機ジャグラー 設定推測ツール v6</title>
   <meta name="description" content="総回転数・BB・RB・差枚・実測小役・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -368,10 +368,26 @@
           </article>
 
           <div class="metric-grid result-metrics">
-            <article class="metric"><span>BB確率</span><strong id="actualBB">—</strong></article>
-            <article class="metric"><span>RB確率</span><strong id="actualRB">—</strong></article>
-            <article class="metric"><span>合算</span><strong id="actualCombined">—</strong></article>
-            <article class="metric grape-highlight"><span>小役入力</span><strong id="actualSmallRole">—</strong></article>
+            <article class="metric nearest-metric metric-bb">
+              <span>BB確率</span>
+              <strong id="actualBB">—</strong>
+              <small id="nearestBB" class="nearest-summary">最接近 —</small>
+            </article>
+            <article class="metric nearest-metric metric-rb">
+              <span>RB確率</span>
+              <strong id="actualRB">—</strong>
+              <small id="nearestRB" class="nearest-summary">最接近 —</small>
+            </article>
+            <article class="metric nearest-metric metric-combined">
+              <span>合算</span>
+              <strong id="actualCombined">—</strong>
+              <small id="nearestCombined" class="nearest-summary">最接近 —</small>
+            </article>
+            <article class="metric grape-highlight nearest-metric metric-grape">
+              <span>ブドウ・小役入力</span>
+              <strong id="actualSmallRole">—</strong>
+              <small id="nearestGrape" class="nearest-summary">最接近 —</small>
+            </article>
             <article class="metric highlight"><span>設定4以上</span><strong id="prob4Plus">—</strong></article>
             <article class="metric highlight"><span>設定5以上</span><strong id="prob5Plus">—</strong></article>
             <article class="metric"><span>推定設定平均</span><strong id="expectedSetting">—</strong></article>
@@ -422,10 +438,21 @@
           </section>
 
           <section class="subpanel table-section">
-            <h3>実測値と設定別スペック</h3>
-            <div class="table-wrap">
-              <table>
-                <thead><tr><th>設定</th><th>BB</th><th>RB</th><th>合算</th><th>ブドウ参考</th><th>出玉率</th><th>期待差枚</th><th>確率</th></tr></thead>
+            <div class="spec-title-row">
+              <div>
+                <h3>実測値と設定別スペック</h3>
+                <p id="nearestSpecSummary" class="field-note nearest-explanation">各実測確率に最も近い設定を色付きで表示します。</p>
+              </div>
+              <div class="nearest-legend" aria-label="最接近表示の凡例">
+                <span class="legend-chip legend-bb"><i></i>BB</span>
+                <span class="legend-chip legend-rb"><i></i>RB</span>
+                <span class="legend-chip legend-combined"><i></i>合算</span>
+                <span class="legend-chip legend-grape"><i></i>ブドウ</span>
+              </div>
+            </div>
+            <div class="table-wrap spec-table-wrap">
+              <table class="spec-comparison-table">
+                <thead><tr><th>設定</th><th>BB</th><th>RB</th><th>合算</th><th>ブドウ参考</th><th>出玉率</th><th>期待差枚</th><th>総合確率</th></tr></thead>
                 <tbody id="specComparisonBody"></tbody>
               </table>
             </div>

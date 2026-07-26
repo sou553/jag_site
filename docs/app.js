@@ -120,7 +120,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v5';
+const STORAGE_KEY = 'juggler-setting-analyzer-v6';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -608,6 +608,71 @@ function getVerdict(posterior, games) {
   return { title, text, top, p4, p5 };
 }
 
+
+function findClosestSettingIndexes(actualDenominator, referenceDenominators) {
+  if (!Number.isFinite(actualDenominator) || actualDenominator <= 0) return [];
+
+  const distances = referenceDenominators.map((denominator) => {
+    if (!Number.isFinite(denominator) || denominator <= 0) return Infinity;
+    return Math.abs(Math.log(actualDenominator / denominator));
+  });
+  const minimum = Math.min(...distances);
+  if (!Number.isFinite(minimum)) return [];
+
+  const tolerance = Math.max(1e-12, minimum * 1e-9);
+  return distances
+    .map((distance, index) => ({ distance, index }))
+    .filter(({ distance }) => Math.abs(distance - minimum) <= tolerance)
+    .map(({ index }) => index);
+}
+
+function formatSettingRange(indexes) {
+  if (!indexes.length) return '—';
+  const settings = indexes.map((index) => index + 1).sort((a, b) => a - b);
+
+  const groups = [];
+  let start = settings[0];
+  let previous = settings[0];
+
+  for (let i = 1; i <= settings.length; i += 1) {
+    const current = settings[i];
+    if (current === previous + 1) {
+      previous = current;
+      continue;
+    }
+
+    groups.push(start === previous ? `設定${start}` : `設定${start}〜${previous}`);
+    start = current;
+    previous = current;
+  }
+
+  return groups.join('・');
+}
+
+function setNearestMetricSummary(elementId, indexes, available = true) {
+  const element = $(elementId);
+  if (!element) return;
+
+  if (!available || !indexes.length) {
+    element.textContent = '最接近 判定なし';
+    element.classList.add('unavailable');
+    return;
+  }
+
+  element.textContent = `最接近 ${formatSettingRange(indexes)}`;
+  element.classList.remove('unavailable');
+}
+
+function buildSpecMetricCell(value, metricClass, isNearest) {
+  const classes = ['spec-metric-cell'];
+  if (isNearest) classes.push('nearest-cell', `nearest-${metricClass}`);
+
+  return `<td class="${classes.join(' ')}">
+    <span class="spec-value">${value}</span>
+    ${isNearest ? '<span class="nearest-mark">最接近</span>' : ''}
+  </td>`;
+}
+
 function renderResult(data, result) {
   $('emptyResult').classList.add('hidden');
   $('resultContent').classList.remove('hidden');
@@ -626,6 +691,18 @@ function renderResult(data, result) {
   $('actualRB').textContent = formatDenominator(data.games, data.rb);
   $('actualCombined').textContent = formatDenominator(data.games, data.bb + data.rb);
 
+  const actualDenominators = {
+    bb: data.bb > 0 ? data.games / data.bb : null,
+    rb: data.rb > 0 ? data.games / data.rb : null,
+    combined: data.bb + data.rb > 0 ? data.games / (data.bb + data.rb) : null
+  };
+  const closestSettings = {
+    bb: findClosestSettingIndexes(actualDenominators.bb, result.machine.specs.map((spec) => spec[0])),
+    rb: findClosestSettingIndexes(actualDenominators.rb, result.machine.specs.map((spec) => spec[1])),
+    combined: findClosestSettingIndexes(actualDenominators.combined, result.machine.specs.map((spec) => spec[2])),
+    grape: []
+  };
+
   if (!roleUsed) $('actualSmallRole').textContent = '未使用';
   else if (result.usedEvidence.length === 1) {
     const evidence = result.usedEvidence[0];
@@ -635,6 +712,30 @@ function renderResult(data, result) {
   } else {
     $('actualSmallRole').textContent = `${result.usedEvidence.length}項目使用`;
   }
+
+  const grapeEvidence = result.usedEvidence.find((evidence) => evidence.key === 'grape');
+  const grapeRoleForNearest = result.machine.roles.grape;
+  if (grapeEvidence && grapeRoleForNearest && Number.isFinite(grapeEvidence.denominator)) {
+    closestSettings.grape = findClosestSettingIndexes(
+      grapeEvidence.denominator,
+      grapeRoleForNearest.denoms
+    );
+  }
+
+  setNearestMetricSummary('nearestBB', closestSettings.bb, Number.isFinite(actualDenominators.bb));
+  setNearestMetricSummary('nearestRB', closestSettings.rb, Number.isFinite(actualDenominators.rb));
+  setNearestMetricSummary('nearestCombined', closestSettings.combined, Number.isFinite(actualDenominators.combined));
+  setNearestMetricSummary('nearestGrape', closestSettings.grape, Boolean(grapeEvidence));
+
+  const nearestParts = [
+    closestSettings.bb.length ? `BB=${formatSettingRange(closestSettings.bb)}` : null,
+    closestSettings.rb.length ? `RB=${formatSettingRange(closestSettings.rb)}` : null,
+    closestSettings.combined.length ? `合算=${formatSettingRange(closestSettings.combined)}` : null,
+    closestSettings.grape.length ? `ブドウ=${formatSettingRange(closestSettings.grape)}` : null
+  ].filter(Boolean);
+  $('nearestSpecSummary').textContent = nearestParts.length
+    ? `最接近：${nearestParts.join('、')}。同じ公表値は複数設定を同時表示します。`
+    : '比較できる実測値がありません。';
 
   $('prob4Plus').textContent = formatPercent(verdict.p4);
   $('prob5Plus').textContent = formatPercent(verdict.p5);
@@ -712,12 +813,14 @@ function renderResult(data, result) {
   result.machine.specs.forEach((spec, index) => {
     const tr = document.createElement('tr');
     if (index + 1 === verdict.top) tr.className = 'best-row';
+
+    const grapeValue = grapeRole ? `1/${grapeRole.denoms[index].toFixed(2)}` : '—';
     tr.innerHTML = `
       <td>設定${index + 1}</td>
-      <td>1/${spec[0]}</td>
-      <td>1/${spec[1]}</td>
-      <td>1/${spec[2]}</td>
-      <td>${grapeRole ? `1/${grapeRole.denoms[index].toFixed(2)}` : '—'}</td>
+      ${buildSpecMetricCell(`1/${spec[0]}`, 'bb', closestSettings.bb.includes(index))}
+      ${buildSpecMetricCell(`1/${spec[1]}`, 'rb', closestSettings.rb.includes(index))}
+      ${buildSpecMetricCell(`1/${spec[2]}`, 'combined', closestSettings.combined.includes(index))}
+      ${buildSpecMetricCell(grapeValue, 'grape', closestSettings.grape.includes(index))}
       <td>${spec[3].toFixed(1)}%</td>
       <td>${formatSigned(result.expectedDiffs[index])}</td>
       <td>${formatPercent(result.posterior[index])}</td>`;
