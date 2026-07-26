@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light dark">
-  <title>6号機ジャグラー 設定推測ツール v12</title>
-  <meta name="description" content="総回転数・BB・RB・差枚・実測小役・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
+  <title>6号機ジャグラー 設定推測ツール v13</title>
+  <meta name="description" content="総回転数・BB・RB・任意の差枚・実測小役から6号機ジャグラーの設定別相対確率を計算し、ボーナス履歴を台データへ自動同期するWebツールです。">
   <link rel="icon" type="image/png" href="./img/mini.jpg">
   <script>
     (() => {
@@ -25,7 +25,7 @@
       <div>
         <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
         <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
-        <p class="lead">BB・RB・差枚・実測小役・履歴をまとめて判定</p>
+        <p class="lead">BB・RB・任意の差枚・実測小役を総合判定<br><small>ボーナス履歴は区間分析と台データ自動同期に対応</small></p>
       </div>
       <div class="header-actions">
         <button id="themeToggle" class="button header-button theme-toggle" type="button" aria-label="表示テーマを切り替える" aria-pressed="false">
@@ -64,7 +64,7 @@
             <p id="machineNote" class="field-note"></p>
           </div>
 
-          <div class="quick-stat-grid">
+          <div class="quick-stat-grid base-data-grid">
             <label class="quick-field">
               <span>総回転数</span>
               <div class="number-box">
@@ -74,76 +74,116 @@
             </label>
 
             <div class="quick-field diff-field">
-              <span>差枚</span>
+              <span>差枚 <small class="optional-label">任意</small></span>
               <div class="signed-number-box diff-input-layout">
                 <button id="diffSignToggle" class="sign-toggle" type="button" aria-label="差枚のプラスとマイナスを切り替える" aria-pressed="false">＋</button>
                 <div class="diff-value-box">
-                  <input id="diffCoins" inputmode="numeric" type="text" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" placeholder="差枚">
+                  <input id="diffCoins" inputmode="numeric" type="text" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" placeholder="未入力">
                   <span class="diff-unit">枚</span>
                 </div>
               </div>
-              <p class="mini-note">左の＋／−で符号を変更</p>
+              <p id="diffUsageNote" class="mini-note diff-usage-note">未入力なら差枚・逆算ブドウを判定に使用しません。</p>
+            </div>
+          </div>
+
+          <section class="bonus-input-section">
+            <div class="bonus-mode-heading">
+              <div>
+                <span class="field-title">ボーナス回数</span>
+                <p>通常は合計回数だけで判定できます。単独・重複を数えた場合のみ詳細入力を使用します。</p>
+              </div>
+              <span id="bonusModeBadge" class="status-pill">かんたん入力</span>
             </div>
 
-            <input id="bbCount" type="hidden" value="0">
-            <input id="rbCount" type="hidden" value="0">
+            <div class="bonus-mode-selector" role="tablist" aria-label="ボーナス入力方法">
+              <button id="simpleBonusModeButton" class="bonus-mode-button active" data-bonus-mode="simple" type="button" role="tab" aria-selected="true">
+                <strong>かんたん入力</strong>
+                <small>BB・RB合計だけ</small>
+              </button>
+              <button id="detailedBonusModeButton" class="bonus-mode-button" data-bonus-mode="detailed" type="button" role="tab" aria-selected="false">
+                <strong>詳細入力</strong>
+                <small>単独・チェリー重複を分ける</small>
+              </button>
+            </div>
 
-            <section class="bonus-breakdown-card bb-breakdown-card">
-              <div class="bonus-breakdown-head">
-                <div>
-                  <span class="bonus-kind-label">BB</span>
-                  <small>BIGボーナス内訳</small>
-                </div>
-                <div class="bonus-total">
-                  <strong id="bbTotalDisplay">0</strong>
+            <div id="simpleBonusPanel" class="simple-bonus-panel">
+              <label class="quick-field bb-field">
+                <span>BB合計</span>
+                <div class="number-box">
+                  <input id="simpleBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                   <em>回</em>
                 </div>
-              </div>
-              <div class="bonus-component-grid">
-                <label class="bonus-component-field">
-                  <span>単独BIG</span>
-                  <input id="singleBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
-                </label>
-                <label class="bonus-component-field">
-                  <span>チェリー重複BIG</span>
-                  <input id="cherryBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
-                </label>
-                <label class="bonus-component-field unknown-component">
-                  <span>内訳不明BIG</span>
-                  <input id="unknownBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
-                </label>
-              </div>
-              <p class="mini-note">単独・重複が分からない回数は「内訳不明」へ入力します。</p>
-            </section>
+              </label>
 
-            <section class="bonus-breakdown-card rb-breakdown-card">
-              <div class="bonus-breakdown-head">
-                <div>
-                  <span class="bonus-kind-label">RB</span>
-                  <small>REGボーナス内訳</small>
-                </div>
-                <div class="bonus-total">
-                  <strong id="rbTotalDisplay">0</strong>
+              <label class="quick-field rb-field">
+                <span>RB合計</span>
+                <div class="number-box">
+                  <input id="simpleRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                   <em>回</em>
                 </div>
-              </div>
-              <div class="bonus-component-grid">
-                <label class="bonus-component-field">
-                  <span>単独REG</span>
-                  <input id="singleRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
-                </label>
-                <label class="bonus-component-field">
-                  <span>チェリー重複REG</span>
-                  <input id="cherryRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
-                </label>
-                <label class="bonus-component-field unknown-component">
-                  <span>内訳不明REG</span>
-                  <input id="unknownRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
-                </label>
-              </div>
-              <p class="mini-note">単独・重複が分からない回数は「内訳不明」へ入力します。</p>
-            </section>
-          </div>
+              </label>
+            </div>
+
+            <div id="detailedBonusPanel" class="detailed-bonus-panel hidden">
+              <section class="bonus-breakdown-card bb-breakdown-card">
+                <div class="bonus-breakdown-head">
+                  <div>
+                    <span class="bonus-kind-label">BB</span>
+                    <small>BIGボーナス内訳</small>
+                  </div>
+                  <div class="bonus-total">
+                    <strong id="bbTotalDisplay">0</strong>
+                    <em>回</em>
+                  </div>
+                </div>
+                <div class="bonus-component-grid">
+                  <label class="bonus-component-field">
+                    <span>単独BIG</span>
+                    <input id="singleBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
+                  <label class="bonus-component-field">
+                    <span>チェリー重複BIG</span>
+                    <input id="cherryBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
+                  <label class="bonus-component-field unknown-component">
+                    <span>内訳不明BIG</span>
+                    <input id="unknownBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
+                </div>
+              </section>
+
+              <section class="bonus-breakdown-card rb-breakdown-card">
+                <div class="bonus-breakdown-head">
+                  <div>
+                    <span class="bonus-kind-label">RB</span>
+                    <small>REGボーナス内訳</small>
+                  </div>
+                  <div class="bonus-total">
+                    <strong id="rbTotalDisplay">0</strong>
+                    <em>回</em>
+                  </div>
+                </div>
+                <div class="bonus-component-grid">
+                  <label class="bonus-component-field">
+                    <span>単独REG</span>
+                    <input id="singleRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
+                  <label class="bonus-component-field">
+                    <span>チェリー重複REG</span>
+                    <input id="cherryRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
+                  <label class="bonus-component-field unknown-component">
+                    <span>内訳不明REG</span>
+                    <input id="unknownRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
+                </div>
+              </section>
+              <p class="mini-note detailed-input-note">内訳不明分もBB・RB合計には含まれます。単独／重複の追加判定には、内訳が分かる回数だけを使います。</p>
+            </div>
+          </section>
+
+          <input id="bbCount" type="hidden" value="0">
+          <input id="rbCount" type="hidden" value="0">
 
           <div class="live-rates" aria-live="polite">
             <div><span>BB</span><strong id="liveBB">—</strong></div>
@@ -335,7 +375,14 @@
             <span id="historyCountBadge" class="status-pill">0件</span>
           </div>
 
-          <p class="panel-description">当選までのゲーム数を入力し、単独BIG・重複BIG・単独REG・重複REGから選びます。最終ボーナス後は「現在」を押します。</p>
+          <p class="panel-description">当選までのゲーム数を入力し、ボーナス種別を選びます。登録・削除・現在G数の変更は台データへ自動反映されます。</p>
+          <div class="history-sync-banner">
+            <span class="sync-indicator" aria-hidden="true"></span>
+            <div>
+              <strong>台データと自動同期</strong>
+              <small id="historySyncStatus">履歴を追加すると総回転数とボーナス回数を自動更新します。</small>
+            </div>
+          </div>
 
           <div class="history-entry-display">
             <span>ゲーム数</span>
@@ -376,10 +423,9 @@
             </button>
           </div>
 
-          <div class="history-action-row">
+          <div class="history-action-row history-action-row-auto">
             <button id="deleteLastHistory" class="button soft" type="button">1件戻す</button>
             <button id="clearHistory" class="button soft danger-text" type="button">履歴を消去</button>
-            <button id="applyHistory" class="button secondary" type="button">集計値へ反映</button>
           </div>
           <p id="historyParseStatus" class="field-note"></p>
 
@@ -472,6 +518,26 @@
               <span id="analysisModeLabel" class="field-note"></span>
             </div>
             <div id="probabilityBars" class="probability-bars"></div>
+          </section>
+
+          <section class="subpanel evidence-panel">
+            <div class="subpanel-title">
+              <div>
+                <h3>判定根拠</h3>
+                <p class="field-note">各項目単体の近似先と、最終判定に使用した情報を表示します。</p>
+              </div>
+              <span id="evidenceStrengthBadge" class="status-pill">判別強度 —</span>
+            </div>
+
+            <div class="evidence-summary-grid">
+              <article><span>1位と2位の差</span><strong id="evidenceTopGap">—</strong></article>
+              <article><span>設定1〜3</span><strong id="evidenceLowProbability">—</strong></article>
+              <article><span>設定4〜6</span><strong id="evidenceHighProbability">—</strong></article>
+              <article><span>入力方式</span><strong id="evidenceInputMode">—</strong></article>
+            </div>
+
+            <div id="evidenceList" class="evidence-list"></div>
+            <p class="field-note evidence-disclaimer">「近い設定」は各項目単体の目安です。総合判定は全入力の尤度を統合した結果のため、一致しない場合があります。</p>
           </section>
 
           <section class="subpanel grape-panel">

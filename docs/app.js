@@ -181,7 +181,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v12';
+const STORAGE_KEY = 'juggler-setting-analyzer-v13';
 const THEME_STORAGE_KEY = 'juggler-theme';
 const DARK_THEME_COLOR = '#0a1020';
 const LIGHT_THEME_COLOR = '#10172a';
@@ -192,6 +192,8 @@ const REPLAY_DENOM = 7.298;
 const ROLE_ORDER = ['grape','nonCherry','cherry','singleBB','singleRB','cherryBB','cherryRB','rareCherryBB','cherryBonus'];
 let pendingRoleCounts = {};
 let activeRoleMode = 'reverse';
+let bonusInputMode = 'simple';
+let historySyncActive = false;
 const $ = (id) => document.getElementById(id);
 const machineSelect = $('machineSelect');
 let keypadValue = '0';
@@ -362,7 +364,9 @@ function updateRoleMode() {
   const mode = getRoleMode();
   $('reverseRolePanel').classList.toggle('hidden', mode !== 'reverse');
   $('manualRolePanel').classList.toggle('hidden', mode !== 'manual');
-  $('roleStatusBadge').textContent = mode === 'reverse' ? '差枚で逆算' : '小役回数を入力';
+  $('roleStatusBadge').textContent = mode === 'reverse'
+    ? (normalizeUnsignedNumericInput($('diffCoins').value).length ? '差枚で逆算' : '差枚未入力')
+    : '小役回数を入力';
 
   const reverseButton = $('reverseModeButton');
   const manualButton = $('manualModeButton');
@@ -535,11 +539,75 @@ function entriesToText(entries) {
   return entries.map((entry) => `${entry.games} ${historyEntryCode(entry)}`).join('\n');
 }
 
+function getBonusInputMode() {
+  return bonusInputMode;
+}
+
+function detailedBonusFieldsAreEmpty() {
+  return ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
+    .every((id) => $(id).value.trim() === '' || Number($(id).value) === 0);
+}
+
+function updateBonusInputModeUI() {
+  const simple = bonusInputMode === 'simple';
+  $('simpleBonusPanel').classList.toggle('hidden', !simple);
+  $('detailedBonusPanel').classList.toggle('hidden', simple);
+  $('simpleBonusModeButton').classList.toggle('active', simple);
+  $('detailedBonusModeButton').classList.toggle('active', !simple);
+  $('simpleBonusModeButton').setAttribute('aria-selected', String(simple));
+  $('detailedBonusModeButton').setAttribute('aria-selected', String(!simple));
+  $('bonusModeBadge').textContent = simple ? 'かんたん入力' : '詳細入力';
+}
+
+function setBonusInputMode(mode, syncValues = true) {
+  const nextMode = mode === 'detailed' ? 'detailed' : 'simple';
+  if (nextMode === bonusInputMode) {
+    updateBonusInputModeUI();
+    return;
+  }
+
+  if (syncValues && nextMode === 'detailed' && detailedBonusFieldsAreEmpty()) {
+    const simpleBB = Math.round(clampNumber($('simpleBBCount').value));
+    const simpleRB = Math.round(clampNumber($('simpleRBCount').value));
+    $('unknownBBCount').value = simpleBB > 0 ? String(simpleBB) : '';
+    $('unknownRBCount').value = simpleRB > 0 ? String(simpleRB) : '';
+  }
+
+  if (syncValues && nextMode === 'simple') {
+    const detailed = readDetailedBonusBreakdown();
+    $('simpleBBCount').value = detailed.bb > 0 ? String(detailed.bb) : '';
+    $('simpleRBCount').value = detailed.rb > 0 ? String(detailed.rb) : '';
+  }
+
+  bonusInputMode = nextMode;
+  updateBonusInputModeUI();
+  updateLiveRates();
+  saveState();
+}
+
+function updateDiffUsageNote() {
+  const hasDiff = normalizeUnsignedNumericInput($('diffCoins').value).length > 0;
+  $('diffUsageNote').textContent = hasDiff
+    ? `${diffSign < 0 ? '−' : '＋'}差枚を入力済み。差枚逆算モードではブドウ推定に使用します。`
+    : '未入力なら差枚・逆算ブドウを判定に使用しません。';
+  $('diffUsageNote').classList.toggle('used', hasDiff);
+
+  if (getRoleMode() === 'reverse') {
+    $('roleStatusBadge').textContent = hasDiff ? '差枚で逆算' : '差枚未入力';
+  }
+}
+
+function markManualSummaryInput() {
+  if (!historySyncActive) return;
+  historySyncActive = false;
+  $('historySyncStatus').textContent = '台データを手動変更しました。履歴を編集すると再び自動同期します。';
+}
+
 function getPriorRawValues() {
   return Array.from({ length: 6 }, (_, index) => clampNumber($(`priorValue${index + 1}`).value, 0, 100));
 }
 
-function readBonusBreakdown() {
+function readDetailedBonusBreakdown() {
   const values = {
     singleBB: Math.round(clampNumber($('singleBBCount').value)),
     cherryBB: Math.round(clampNumber($('cherryBBCount').value)),
@@ -548,10 +616,27 @@ function readBonusBreakdown() {
     cherryRB: Math.round(clampNumber($('cherryRBCount').value)),
     unknownRB: Math.round(clampNumber($('unknownRBCount').value))
   };
-
   values.bb = values.singleBB + values.cherryBB + values.unknownBB;
   values.rb = values.singleRB + values.cherryRB + values.unknownRB;
   return values;
+}
+
+function readBonusBreakdown() {
+  if (bonusInputMode === 'simple') {
+    const bb = Math.round(clampNumber($('simpleBBCount').value));
+    const rb = Math.round(clampNumber($('simpleRBCount').value));
+    return {
+      singleBB: 0,
+      cherryBB: 0,
+      unknownBB: bb,
+      singleRB: 0,
+      cherryRB: 0,
+      unknownRB: rb,
+      bb,
+      rb
+    };
+  }
+  return readDetailedBonusBreakdown();
 }
 
 function updateBonusTotals() {
@@ -590,27 +675,38 @@ function calculateBonusBreakdownEvidence(data, machine) {
     const knownCount = category.singleCount + category.cherryCount;
     if (knownCount <= 0 || !category.singleRole) return;
 
-    category.singleRole.denoms.forEach((singleDenominator, index) => {
+    const categoryLogs = category.singleRole.denoms.map((singleDenominator, index) => {
       const totalProbability = 1 / machine.specs[index][category.totalSpecIndex];
       const singleProbability = 1 / singleDenominator;
       const conditionalSingle = Math.min(
         1 - 1e-9,
         Math.max(1e-9, singleProbability / totalProbability)
       );
-
-      logLikelihoods[index] += binomialLogLikelihood(
+      return binomialLogLikelihood(
         knownCount,
         category.singleCount,
         conditionalSingle
       );
     });
 
+    categoryLogs.forEach((value, index) => {
+      logLikelihoods[index] += value;
+    });
+
+    const bestValue = Math.max(...categoryLogs);
+    const bestIndexes = categoryLogs
+      .map((value, index) => ({ value, index }))
+      .filter(({ value }) => Math.abs(value - bestValue) <= 1e-10)
+      .map(({ index }) => index);
+
     evidence.push({
       type: category.type,
       label: category.label,
       singleCount: category.singleCount,
       cherryCount: category.cherryCount,
-      knownCount
+      knownCount,
+      bestIndexes,
+      logLikelihoods: categoryLogs
     });
   });
 
@@ -618,7 +714,9 @@ function calculateBonusBreakdownEvidence(data, machine) {
 }
 
 function getInputs() {
-  const absoluteDiff = Number(normalizeUnsignedNumericInput($('diffCoins').value)) || 0;
+  const diffRaw = normalizeUnsignedNumericInput($('diffCoins').value);
+  const hasDiff = diffRaw.length > 0;
+  const absoluteDiff = hasDiff ? Number(diffRaw) : null;
   const priorRaw = getPriorRawValues();
   const priorEnabled = $('usePriorCorrection').checked;
   const games = Math.round(clampNumber($('totalGames').value));
@@ -630,10 +728,13 @@ function getInputs() {
     games,
     bb: bonusBreakdown.bb,
     rb: bonusBreakdown.rb,
+    bonusInputMode,
     bonusBreakdown,
-    diff: diffSign * absoluteDiff,
+    hasDiff,
+    diff: hasDiff ? diffSign * absoluteDiff : null,
     historyText: $('historyInput').value,
     currentGames: Math.round(clampNumber($('currentGames').value)),
+    historySyncActive,
     priorEnabled,
     priorRaw,
     priors: priorEnabled ? normalizeWeights(priorRaw) : Array(6).fill(1 / 6),
@@ -652,7 +753,7 @@ function validate(data) {
   if (data.games <= 0) issues.push('総回転数を入力してください。');
   if (data.bb + data.rb <= 0) issues.push('BBまたはRB回数を入力してください。');
   if (data.bb + data.rb > data.games) issues.push('BB＋RB回数が総回転数を超えています。');
-  if (!Number.isFinite(data.diff)) issues.push('差枚を正しく入力してください。');
+  if (data.hasDiff && !Number.isFinite(data.diff)) issues.push('差枚を正しく入力してください。');
   if (data.priorEnabled && data.priorRaw.reduce((a, b) => a + b, 0) <= 0) issues.push('設定配分を1つ以上入力してください。');
 
   if (data.roleMode === 'manual') {
@@ -668,6 +769,14 @@ function validate(data) {
 }
 
 function estimateGrape(data, machine) {
+  if (!data.hasDiff) {
+    return {
+      valid: false,
+      skipped: true,
+      message: '差枚未入力のため、逆算ブドウは判定に使用していません。'
+    };
+  }
+
   const cherryDenom = getReverseCherryDenom(machine);
   const totalOut = data.games * 3 + data.diff;
   const bonusOut = data.bb * machine.bonusCoins[0] + data.rb * machine.bonusCoins[1];
@@ -676,16 +785,34 @@ function estimateGrape(data, machine) {
   const grapeOut = totalOut - bonusOut - replayOut - cherryOut;
   const grapeCount = grapeOut / GRAPE_PAYOUT;
   const denominator = grapeCount > 0 ? data.games / grapeCount : Infinity;
-  const valid = Number.isFinite(denominator) && grapeCount > 0 && grapeCount < data.games && denominator >= 3.5 && denominator <= 12;
+  const valid = Number.isFinite(denominator)
+    && grapeCount > 0
+    && grapeCount < data.games
+    && denominator >= 3.5
+    && denominator <= 12;
+
   let message = '';
   if (!valid) {
-    message = '逆算値が現実的な範囲外です。差枚・回転数・ボーナス回数を確認してください。小役は判定から除外しました。';
+    message = '逆算値が現実的な範囲外です。差枚・回転数・ボーナス回数を確認してください。逆算ブドウは判定から除外しました。';
   } else if (data.games < 3000) {
     message = '3,000G未満の差枚逆算は誤差が大きいため参考値です。';
   } else {
-    message = '差枚からの推定値です。ベル・ピエロ、目押しロス、データ機器の差を含まないため証拠強度を低めにしてください。';
+    message = '差枚からの推定値です。ベル・ピエロ、目押しロス、データ機器の差を含むため、証拠強度を低めにしています。';
   }
-  return { totalOut, bonusOut, replayOut, cherryOut, grapeOut, grapeCount, denominator, valid, message, cherryDenom };
+
+  return {
+    totalOut,
+    bonusOut,
+    replayOut,
+    cherryOut,
+    grapeOut,
+    grapeCount,
+    denominator,
+    valid,
+    skipped: false,
+    message,
+    cherryDenom
+  };
 }
 
 function binomialLogLikelihood(n, x, probability) {
@@ -898,6 +1025,165 @@ function buildSpecMetricCell(value, metricClass, isNearest) {
   </td>`;
 }
 
+function getDecisionStrength(data, posterior) {
+  const ranked = posterior
+    .map((probability, index) => ({ probability, index }))
+    .sort((a, b) => b.probability - a.probability);
+  const gap = ranked[0].probability - ranked[1].probability;
+
+  if (data.games >= 5000 && gap >= 0.15) return { label: '強い', className: 'strong', gap };
+  if (data.games >= 3000 && gap >= 0.07) return { label: '中', className: 'medium', gap };
+  return { label: '弱い', className: 'low', gap };
+}
+
+function createEvidenceItem({ label, title, detail, status, tone = '', unused = false }) {
+  const item = document.createElement('article');
+  item.className = `evidence-item ${tone}${unused ? ' unused' : ''}`.trim();
+  item.innerHTML = `
+    <div class="evidence-item-label">${label}</div>
+    <div class="evidence-item-copy">
+      <strong>${title}</strong>
+      <small>${detail}</small>
+    </div>
+    <span class="evidence-item-status">${status}</span>`;
+  return item;
+}
+
+function renderDecisionEvidence(data, result, closestSettings) {
+  const strength = getDecisionStrength(data, result.posterior);
+  const lowProbability = result.posterior.slice(0, 3).reduce((sum, value) => sum + value, 0);
+  const highProbability = result.posterior.slice(3, 6).reduce((sum, value) => sum + value, 0);
+
+  $('evidenceStrengthBadge').textContent = `判別強度 ${strength.label}`;
+  $('evidenceStrengthBadge').className = `status-pill evidence-strength-${strength.className}`;
+  $('evidenceTopGap').textContent = `${(strength.gap * 100).toFixed(1)}pt`;
+  $('evidenceLowProbability').textContent = formatPercent(lowProbability);
+  $('evidenceHighProbability').textContent = formatPercent(highProbability);
+  $('evidenceInputMode').textContent =
+    `${data.bonusInputMode === 'simple' ? 'かんたん' : '詳細'}${data.historySyncActive ? '・履歴同期' : ''}`;
+
+  const list = $('evidenceList');
+  list.innerHTML = '';
+
+  const actualBB = formatDenominator(data.games, data.bb);
+  const actualRB = formatDenominator(data.games, data.rb);
+  const actualCombined = formatDenominator(data.games, data.bb + data.rb);
+
+  list.appendChild(createEvidenceItem({
+    label: 'BB',
+    title: `${actualBB} → ${formatSettingRange(closestSettings.bb)}`,
+    detail: `${data.bb}回を設定別BB確率と比較`,
+    status: '使用',
+    tone: 'bb'
+  }));
+
+  list.appendChild(createEvidenceItem({
+    label: 'RB',
+    title: `${actualRB} → ${formatSettingRange(closestSettings.rb)}`,
+    detail: `${data.rb}回を設定別RB確率と比較`,
+    status: '使用',
+    tone: 'rb'
+  }));
+
+  list.appendChild(createEvidenceItem({
+    label: '合算',
+    title: `${actualCombined} → ${formatSettingRange(closestSettings.combined)}`,
+    detail: '表示上の近似目安。総合尤度ではBBとRBを分けて計算',
+    status: '参考',
+    tone: 'combined'
+  }));
+
+  if (result.bonusBreakdownEvidence.length) {
+    result.bonusBreakdownEvidence.forEach((evidence) => {
+      list.appendChild(createEvidenceItem({
+        label: evidence.label,
+        title: `単独${evidence.singleCount}回・重複${evidence.cherryCount}回 → ${formatSettingRange(evidence.bestIndexes)}`,
+        detail: 'ボーナス当選時の単独／重複比率を条件付き尤度で追加',
+        status: '使用',
+        tone: 'breakdown'
+      }));
+    });
+  } else {
+    list.appendChild(createEvidenceItem({
+      label: '単独／重複',
+      title: '内訳未入力',
+      detail: 'BB・RB合計だけで判定しています。',
+      status: '未使用',
+      tone: 'breakdown',
+      unused: true
+    }));
+  }
+
+  if (data.roleMode === 'reverse') {
+    if (!data.hasDiff) {
+      list.appendChild(createEvidenceItem({
+        label: '差枚・ブドウ',
+        title: '差枚未入力',
+        detail: '差枚0枚とは扱わず、逆算ブドウを完全に除外しました。',
+        status: '未使用',
+        tone: 'role',
+        unused: true
+      }));
+    } else if (result.grape.valid) {
+      list.appendChild(createEvidenceItem({
+        label: '逆算ブドウ',
+        title: `1/${result.grape.denominator.toFixed(3)} → ${formatSettingRange(closestSettings.grape)}`,
+        detail: `証拠強度${Math.round(data.reverseRoleWeight * 100)}%で追加`,
+        status: '使用',
+        tone: 'role'
+      }));
+    } else {
+      list.appendChild(createEvidenceItem({
+        label: '逆算ブドウ',
+        title: '現実的な範囲外',
+        detail: result.grape.message,
+        status: '除外',
+        tone: 'role',
+        unused: true
+      }));
+    }
+  } else if (result.usedEvidence.length) {
+    result.usedEvidence.forEach((evidence) => {
+      list.appendChild(createEvidenceItem({
+        label: evidence.label,
+        title: Number.isFinite(evidence.denominator)
+          ? `1/${evidence.denominator.toFixed(3)} → ${evidence.closest}`
+          : `0回 → ${evidence.closest}`,
+        detail: `計測${evidence.games}G・証拠強度${Math.round(evidence.weight * 100)}%`,
+        status: '使用',
+        tone: 'role'
+      }));
+    });
+  } else {
+    list.appendChild(createEvidenceItem({
+      label: '実測小役',
+      title: '入力なし',
+      detail: '小役情報を判定に使用していません。',
+      status: '未使用',
+      tone: 'role',
+      unused: true
+    }));
+  }
+
+  list.appendChild(createEvidenceItem({
+    label: '設定配分',
+    title: data.priorEnabled ? 'ユーザー設定を使用' : '均等配分',
+    detail: data.priorEnabled
+      ? '入力した設定1〜6の配分を事前確率として反映'
+      : '設定1〜6を同じ事前確率で比較',
+    status: data.priorEnabled ? '補正あり' : '補正なし',
+    tone: 'prior'
+  }));
+
+  list.appendChild(createEvidenceItem({
+    label: '履歴',
+    title: data.historySyncActive ? '台データへ自動同期済み' : '区間分析のみ',
+    detail: '履歴のハマり・100G以内率は設定尤度へ重複加算していません。',
+    status: data.historySyncActive ? '同期' : '診断',
+    tone: 'history'
+  }));
+}
+
 function renderResult(data, result) {
   $('emptyResult').classList.add('hidden');
   $('resultContent').classList.remove('hidden');
@@ -978,7 +1264,9 @@ function renderResult(data, result) {
   }
 
   const roleLabel = data.roleMode === 'reverse'
-    ? `逆算ブドウ ${Math.round(data.reverseRoleWeight * 100)}%`
+    ? data.hasDiff
+      ? `逆算ブドウ ${Math.round(data.reverseRoleWeight * 100)}%`
+      : '差枚未入力・小役なし'
     : roleUsed ? `実測小役 ${Math.round(data.manualRoleWeight * 100)}%` : '小役なし';
   const breakdownLabel = result.bonusBreakdownEvidence.length ? ' ＋ 単独/重複内訳' : '';
   $('analysisModeLabel').textContent =
@@ -995,6 +1283,8 @@ function renderResult(data, result) {
       <div class="prob-value">${formatPercent(probability)}</div>`;
     bars.appendChild(row);
   });
+
+  renderDecisionEvidence(data, result, closestSettings);
 
   const reverse = data.roleMode === 'reverse';
   $('reverseBreakdown').classList.toggle('hidden', !reverse);
@@ -1408,6 +1698,7 @@ function handleKeypad(key) {
 }
 
 function addHistoryEntry(type, kind = 'unknown') {
+  historySyncActive = true;
   const games = Number(keypadValue);
   if (!Number.isFinite(games) || games < 0) return;
   const parsed = parseHistory($('historyInput').value);
@@ -1420,14 +1711,17 @@ function addHistoryEntry(type, kind = 'unknown') {
 }
 
 function setCurrentFromKeypad() {
+  historySyncActive = true;
   $('currentGames').value = Number(keypadValue);
   keypadValue = '0';
   updateKeypadDisplay();
   $('historyParseStatus').textContent = `現在G数を${$('currentGames').value}Gに設定しました。`;
+  updateHistoryViews();
   saveState();
 }
 
 function deleteLastHistory() {
+  historySyncActive = true;
   const parsed = parseHistory($('historyInput').value);
   if (!parsed.entries.length) return;
   parsed.entries.pop();
@@ -1437,6 +1731,7 @@ function deleteLastHistory() {
 }
 
 function deleteHistoryAt(index) {
+  historySyncActive = true;
   const parsed = parseHistory($('historyInput').value);
   parsed.entries.splice(index, 1);
   $('historyInput').value = entriesToText(parsed.entries);
@@ -1458,11 +1753,15 @@ function clearAllRoleInputs() {
 
 function clearHistory() {
   if (!$('historyInput').value.trim() && Number($('currentGames').value) === 0) return;
-  if (!window.confirm('登録したボーナス履歴と現在G数を消去します。')) return;
+  if (!window.confirm('登録したボーナス履歴、現在G数、同期した台データを消去します。')) return;
+
+  historySyncActive = true;
   $('historyInput').value = '';
   $('currentGames').value = '';
   $('historyParseStatus').textContent = '';
   updateHistoryViews();
+  historySyncActive = false;
+  $('historySyncStatus').textContent = '履歴を追加すると総回転数とボーナス回数を自動更新します。';
   saveState();
 }
 
@@ -1519,11 +1818,98 @@ function renderHistoryList(entries) {
   });
 }
 
+function getHistorySummary(parsed) {
+  const currentGames = Math.round(clampNumber($('currentGames').value));
+  const counts = {
+    singleBB: 0,
+    cherryBB: 0,
+    unknownBB: 0,
+    singleRB: 0,
+    cherryRB: 0,
+    unknownRB: 0,
+    unknownType: 0
+  };
+
+  parsed.entries.forEach((entry) => {
+    if (entry.type === 'BB' && entry.kind === 'single') counts.singleBB += 1;
+    else if (entry.type === 'BB' && entry.kind === 'cherry') counts.cherryBB += 1;
+    else if (entry.type === 'BB') counts.unknownBB += 1;
+    else if (entry.type === 'RB' && entry.kind === 'single') counts.singleRB += 1;
+    else if (entry.type === 'RB' && entry.kind === 'cherry') counts.cherryRB += 1;
+    else if (entry.type === 'RB') counts.unknownRB += 1;
+    else counts.unknownType += 1;
+  });
+
+  const games = parsed.entries.reduce((sum, entry) => sum + entry.games, 0) + currentGames;
+  return { games, currentGames, counts };
+}
+
+function syncHistoryToSummary(parsed, announce = true) {
+  if (!historySyncActive) {
+    if (announce) {
+      const hasHistoryInput = $('historyInput').value.trim() !== ''
+        || Number($('currentGames').value) > 0;
+      $('historySyncStatus').textContent = hasHistoryInput
+        ? '手動入力中。履歴を追加・編集すると自動同期を再開します。'
+        : '履歴を追加すると総回転数とボーナス回数を自動更新します。';
+    }
+    return;
+  }
+
+  const summary = getHistorySummary(parsed);
+  const hasHistorySource = parsed.entries.length > 0
+    || summary.currentGames > 0
+    || $('historyInput').value.trim() !== '';
+
+  if (!hasHistorySource) {
+    $('totalGames').value = '';
+    $('simpleBBCount').value = '';
+    $('simpleRBCount').value = '';
+    ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
+      .forEach((id) => { $(id).value = ''; });
+    updateLiveRates();
+    $('historySyncStatus').textContent = '履歴は空です。台データも空欄へ同期しました。';
+    return;
+  }
+
+  const counts = summary.counts;
+  $('totalGames').value = summary.games > 0 ? String(summary.games) : '';
+  $('singleBBCount').value = counts.singleBB > 0 ? String(counts.singleBB) : '';
+  $('cherryBBCount').value = counts.cherryBB > 0 ? String(counts.cherryBB) : '';
+  $('unknownBBCount').value = counts.unknownBB > 0 ? String(counts.unknownBB) : '';
+  $('singleRBCount').value = counts.singleRB > 0 ? String(counts.singleRB) : '';
+  $('cherryRBCount').value = counts.cherryRB > 0 ? String(counts.cherryRB) : '';
+  $('unknownRBCount').value = counts.unknownRB > 0 ? String(counts.unknownRB) : '';
+
+  const bb = counts.singleBB + counts.cherryBB + counts.unknownBB;
+  const rb = counts.singleRB + counts.cherryRB + counts.unknownRB;
+  $('simpleBBCount').value = bb > 0 ? String(bb) : '';
+  $('simpleRBCount').value = rb > 0 ? String(rb) : '';
+
+  const hasKnownBreakdown = counts.singleBB + counts.cherryBB + counts.singleRB + counts.cherryRB > 0;
+  bonusInputMode = hasKnownBreakdown ? 'detailed' : 'simple';
+  updateBonusInputModeUI();
+  updateLiveRates();
+  updateRoleRates();
+
+  if (announce) {
+    $('historySyncStatus').textContent =
+      `${parsed.entries.length}件・総回転${summary.games.toLocaleString('ja-JP')}Gを同期`
+      + `（BB${bb}・RB${rb}）`;
+  }
+}
+
 function updateHistoryViews() {
   const parsed = parseHistory($('historyInput').value);
   renderHistoryList(parsed.entries);
   renderHistoryAnalysis(parsed.entries, MACHINES[machineSelect.value]);
-  $('historyParseStatus').textContent = parsed.errors.length ? `読み取れない行：${parsed.errors.join(', ')}行目` : $('historyParseStatus').textContent;
+  syncHistoryToSummary(parsed, true);
+
+  if (parsed.errors.length) {
+    $('historyParseStatus').textContent = `読み取れない行：${parsed.errors.join(', ')}行目`;
+  } else if (historySyncActive && parsed.entries.length) {
+    $('historyParseStatus').textContent = '履歴内容を台データへ自動反映しました。';
+  }
 }
 
 function analyze() {
@@ -1552,53 +1938,8 @@ function analyze() {
 }
 
 function applyHistoryToSummary() {
-  const parsed = parseHistory($('historyInput').value);
-  const games = parsed.entries.reduce((sum, entry) => sum + entry.games, 0)
-    + Math.round(clampNumber($('currentGames').value));
-
-  if (!parsed.entries.length) {
-    $('historyParseStatus').textContent = '読み取れる履歴がありません。';
-    return;
-  }
-
-  const counts = {
-    singleBB: 0,
-    cherryBB: 0,
-    unknownBB: 0,
-    singleRB: 0,
-    cherryRB: 0,
-    unknownRB: 0,
-    unknownType: 0
-  };
-
-  parsed.entries.forEach((entry) => {
-    if (entry.type === 'BB' && entry.kind === 'single') counts.singleBB += 1;
-    else if (entry.type === 'BB' && entry.kind === 'cherry') counts.cherryBB += 1;
-    else if (entry.type === 'BB') counts.unknownBB += 1;
-    else if (entry.type === 'RB' && entry.kind === 'single') counts.singleRB += 1;
-    else if (entry.type === 'RB' && entry.kind === 'cherry') counts.cherryRB += 1;
-    else if (entry.type === 'RB') counts.unknownRB += 1;
-    else counts.unknownType += 1;
-  });
-
-  $('totalGames').value = games;
-  $('singleBBCount').value = counts.singleBB;
-  $('cherryBBCount').value = counts.cherryBB;
-  $('unknownBBCount').value = counts.unknownBB;
-  $('singleRBCount').value = counts.singleRB;
-  $('cherryRBCount').value = counts.cherryRB;
-  $('unknownRBCount').value = counts.unknownRB;
-
-  const detail =
-    `単独BIG ${counts.singleBB}・重複BIG ${counts.cherryBB}・不明BIG ${counts.unknownBB}`
-    + `／単独REG ${counts.singleRB}・重複REG ${counts.cherryRB}・不明REG ${counts.unknownRB}`;
-
-  $('historyParseStatus').textContent =
-    `${parsed.entries.length}件を集計値へ反映（${detail}）`
-    + `${counts.unknownType ? `・種別不明${counts.unknownType}件` : ''}`
-    + `${parsed.errors.length ? `・読取失敗 ${parsed.errors.join(',')}行` : ''}`;
-
-  updateLiveRates();
+  historySyncActive = true;
+  updateHistoryViews();
   saveState();
 }
 
@@ -1623,6 +1964,7 @@ function updateDiffSignButton() {
 function toggleDiffSign() {
   diffSign *= -1;
   updateDiffSignButton();
+  updateDiffUsageNote();
   saveState();
 }
 
@@ -1664,14 +2006,19 @@ function syncPriorInput(source) {
 function collectState() {
   return {
     machineKey: machineSelect.value,
+    bonusInputMode,
+    historySyncActive,
     totalGames: $('totalGames').value,
+    simpleBBCount: $('simpleBBCount').value,
+    simpleRBCount: $('simpleRBCount').value,
     singleBBCount: $('singleBBCount').value,
     cherryBBCount: $('cherryBBCount').value,
     unknownBBCount: $('unknownBBCount').value,
     singleRBCount: $('singleRBCount').value,
     cherryRBCount: $('cherryRBCount').value,
     unknownRBCount: $('unknownRBCount').value,
-    diffCoins: diffSign * (Number(normalizeUnsignedNumericInput($('diffCoins').value)) || 0),
+    diffRaw: normalizeUnsignedNumericInput($('diffCoins').value),
+    diffSign,
     historyInput: $('historyInput').value,
     currentGames: $('currentGames').value,
     reverseHistory: $('reverseHistory').checked,
@@ -1705,37 +2052,55 @@ function loadState() {
     const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!state) {
       renderRoleInputs();
+      updateBonusInputModeUI();
       return;
     }
+
     if (MACHINES[state.machineKey]) machineSelect.value = state.machineKey;
-    ['totalGames','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount','historyInput','currentGames','reverseRoleWeight','reverseCherryCapture','manualRoleGames','smallRoleCapture','manualRoleWeight'].forEach((id) => {
+    [
+      'totalGames','simpleBBCount','simpleRBCount',
+      'singleBBCount','cherryBBCount','unknownBBCount',
+      'singleRBCount','cherryRBCount','unknownRBCount',
+      'historyInput','currentGames','reverseRoleWeight','reverseCherryCapture',
+      'manualRoleGames','smallRoleCapture','manualRoleWeight'
+    ].forEach((id) => {
       if (state[id] !== undefined && $(id)) $(id).value = state[id];
     });
-    if (state.diffCoins !== undefined) {
-      const signed = Number(state.diffCoins) || 0;
-      diffSign = signed < 0 ? -1 : 1;
-      $('diffCoins').value = signed === 0 ? '' : String(Math.abs(signed));
+
+    bonusInputMode = state.bonusInputMode === 'detailed' ? 'detailed' : 'simple';
+    historySyncActive = Boolean(state.historySyncActive);
+
+    if (state.diffRaw !== undefined) {
+      $('diffCoins').value = normalizeUnsignedNumericInput(state.diffRaw);
+      diffSign = Number(state.diffSign) < 0 ? -1 : 1;
       updateDiffInputSize();
     }
+
     if (typeof state.reverseHistory === 'boolean') $('reverseHistory').checked = state.reverseHistory;
     if (typeof state.usePriorCorrection === 'boolean') $('usePriorCorrection').checked = state.usePriorCorrection;
+
     if (Array.isArray(state.priorValues) && state.priorValues.length === 6) {
       state.priorValues.forEach((value, index) => {
         $(`priorRange${index + 1}`).value = clampNumber(value, 0, 100);
         $(`priorValue${index + 1}`).value = clampNumber(value, 0, 100);
       });
     }
+
     pendingRoleCounts = state.roleCounts || {};
     renderRoleInputs(pendingRoleCounts);
     activeRoleMode = state.roleMode === 'manual' ? 'manual' : 'reverse';
     updateRoleMode();
+    updateBonusInputModeUI();
   } catch (_) {
     renderRoleInputs();
+    updateBonusInputModeUI();
   }
 }
 
 function resetAll() {
   const hasData = Number($('totalGames').value) !== 0
+    || Number($('simpleBBCount').value) !== 0
+    || Number($('simpleRBCount').value) !== 0
     || ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
       .some((id) => Number($(id).value) !== 0)
     || Number($('diffCoins').value) !== 0
@@ -1745,7 +2110,11 @@ function resetAll() {
 
   localStorage.removeItem(STORAGE_KEY);
   machineSelect.value = 'neo_im';
+  bonusInputMode = 'simple';
+  historySyncActive = false;
   $('totalGames').value = '';
+  $('simpleBBCount').value = '';
+  $('simpleRBCount').value = '';
   ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
     .forEach((id) => { $(id).value = ''; });
   $('bbCount').value = '0';
@@ -1754,7 +2123,7 @@ function resetAll() {
   updateDiffInputSize();
   diffSign = 1;
   $('historyInput').value = '';
-  $('currentGames').value = '0';
+  $('currentGames').value = '';
   $('reverseHistory').checked = true;
   $('usePriorCorrection').checked = false;
   $('reverseRoleWeight').value = '25';
@@ -1779,6 +2148,9 @@ function resetAll() {
   window.lastAnalysis = null;
 
   updateMachineNote();
+  updateBonusInputModeUI();
+  updateDiffUsageNote();
+  $('historySyncStatus').textContent = '履歴を追加すると総回転数とボーナス回数を自動更新します。';
   updateEvidenceWeightLabels();
   updatePriorUsage();
   updateDiffSignButton();
@@ -1791,7 +2163,11 @@ function resetAll() {
 
 function loadSample() {
   machineSelect.value = 'im_ex';
+  bonusInputMode = 'detailed';
+  historySyncActive = true;
   $('totalGames').value = '1399';
+  $('simpleBBCount').value = '4';
+  $('simpleRBCount').value = '1';
   $('singleBBCount').value = '3';
   $('cherryBBCount').value = '1';
   $('unknownBBCount').value = '0';
@@ -1814,6 +2190,8 @@ function loadSample() {
   renderRoleInputs();
   setRoleMode('reverse');
   updateMachineNote();
+  updateBonusInputModeUI();
+  updateDiffUsageNote();
   updateEvidenceWeightLabels();
   updatePriorUsage();
   updateDiffSignButton();
@@ -1841,7 +2219,7 @@ function exportCsv() {
     ['単独REG', data.bonusBreakdown.singleRB],
     ['チェリー重複REG', data.bonusBreakdown.cherryRB],
     ['内訳不明REG', data.bonusBreakdown.unknownRB],
-    ['差枚', data.diff],
+    ['差枚', data.hasDiff ? data.diff : '未入力'],
     ['実測BB確率', formatDenominator(data.games, data.bb)],
     ['実測RB確率', formatDenominator(data.games, data.rb)],
     ['実測合算', formatDenominator(data.games, data.bb + data.rb)],
@@ -1885,7 +2263,7 @@ function exportCsv() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `juggler_analysis_v7_${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.download = `juggler_analysis_v13_${new Date().toISOString().slice(0, 10)}.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -1994,7 +2372,6 @@ function bindEvents() {
   $('themeToggle').addEventListener('click', toggleTheme);
   $('analyzeButton').addEventListener('click', analyze);
   $('mobileAnalyzeButton').addEventListener('click', analyze);
-  $('applyHistory').addEventListener('click', applyHistoryToSummary);
   $('loadSample').addEventListener('click', loadSample);
   $('resetAll').addEventListener('click', resetAll);
   $('exportCsv').addEventListener('click', exportCsv);
@@ -2012,6 +2389,7 @@ function bindEvents() {
       $('diffCoins').value = normalized;
     }
     updateDiffInputSize();
+    updateDiffUsageNote();
   });
   $('normalizePrior').addEventListener('click', normalizePriorInputs);
 
@@ -2022,6 +2400,8 @@ function bindEvents() {
     input.addEventListener('input', () => syncPriorInput(input));
     input.addEventListener('change', saveState);
   });
+  $('simpleBonusModeButton').addEventListener('click', () => setBonusInputMode('simple'));
+  $('detailedBonusModeButton').addEventListener('click', () => setBonusInputMode('detailed'));
   $('reverseModeButton').addEventListener('click', () => setRoleMode('reverse'));
   $('manualModeButton').addEventListener('click', () => setRoleMode('manual'));
   $('clearAllRoles').addEventListener('click', clearAllRoleInputs);
@@ -2061,14 +2441,26 @@ function bindEvents() {
 
   $('referenceCherryCapture').addEventListener('change', renderMachineReference);
 
-  ['totalGames','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
+  ['totalGames','simpleBBCount','simpleRBCount','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
     .forEach((id) => {
       $(id).addEventListener('input', () => {
+        markManualSummaryInput();
         updateLiveRates();
         updateRoleRates();
       });
     });
-  $('historyInput').addEventListener('input', updateHistoryViews);
+
+  $('historyInput').addEventListener('input', () => {
+    historySyncActive = true;
+    updateHistoryViews();
+    saveState();
+  });
+
+  $('currentGames').addEventListener('input', () => {
+    historySyncActive = true;
+    updateHistoryViews();
+    saveState();
+  });
 
   document.querySelectorAll('input, select, textarea').forEach((element) => {
     element.addEventListener('change', saveState);
@@ -2082,6 +2474,8 @@ bindEvents();
 updateThemeToggle();
 bindSystemTheme();
 updateMachineNote();
+updateBonusInputModeUI();
+updateDiffUsageNote();
 updateEvidenceWeightLabels();
 updatePriorUsage();
 updateDiffSignButton();
