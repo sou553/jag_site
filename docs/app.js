@@ -113,6 +113,67 @@ const MACHINES = {
   }
 };
 
+
+const CHERRY_TARGET_PAYOUT_RATES = {
+  neo_im: [97.82, 98.93, 100.58, 102.35, 104.73, 107.09],
+  im_ex: [97.82, 98.93, 100.58, 102.35, 104.73, 107.09],
+  my5: [97.67, 98.79, 101.02, 104.12, 106.99, 111.42],
+  funky2: [97.67, 99.20, 100.82, 103.22, 105.85, 111.13],
+  gogo3: [98.22, 99.18, 100.41, 102.63, 104.87, 107.61],
+  happy3: [97.80, 99.07, 100.74, 104.19, 107.36, 110.27],
+  girls: [98.03, 98.95, 101.01, 103.31, 105.22, 108.72],
+  mister: [98.09, 99.11, 100.96, 103.84, 106.69, 108.49],
+  ultra: [97.94, 99.04, 100.72, 103.11, 105.50, 109.19]
+};
+
+const COIN_HOLD_REFERENCE = {
+  neo_im: {
+    values: [40.6, 40.6, 40.6, 40.6, 40.6, 42.6],
+    cherryCapture: 2 / 3,
+    note: 'チェリー2/3取得・ベル／ピエロ完全こぼし'
+  },
+  im_ex: {
+    values: [40.6, 40.6, 40.6, 40.6, 40.6, 42.6],
+    cherryCapture: 2 / 3,
+    note: 'チェリー2/3取得・ベル／ピエロ完全こぼし'
+  },
+  my5: {
+    values: [42.27, 42.61, 43.01, 43.35, 43.71, 44.57],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  },
+  funky2: {
+    values: [42.16, 42.24, 42.66, 43.08, 43.35, 43.62],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  },
+  happy3: {
+    values: [40.68, 40.90, 41.13, 42.08, 42.24, 42.41],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  },
+  gogo3: {
+    values: [40.03, 40.37, 40.72, 41.30, 41.85, 42.49],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  },
+  girls: {
+    values: [41.72, 41.73, 41.74, 41.75, 42.47, 42.74],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  },
+  mister: {
+    values: [39.93, 40.31, 40.63, 40.89, 41.16, 41.47],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  },
+  ultra: {
+    values: [42.16, 42.18, 42.23, 42.26, 42.30, 42.38],
+    cherryCapture: 1,
+    note: 'チェリー完全取得・ベル／ピエロ完全こぼし'
+  }
+};
+
 const PRIOR_PRESETS = {
   uniform: [16.67, 16.67, 16.67, 16.67, 16.66, 16.66],
   hall: [45, 25, 15, 8, 5, 2],
@@ -120,7 +181,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v8';
+const STORAGE_KEY = 'juggler-setting-analyzer-v9';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -1096,15 +1157,45 @@ function formatReferenceDenominator(probability, digits = 2) {
   return `1/${(1 / probability).toFixed(digits)}`;
 }
 
-function getAdjustedPayoutRate(machine, settingIndex, captureRate) {
-  const officialRate = machine.specs[settingIndex][3];
-  const cherryProbability = getCherryProbabilityForSetting(machine, settingIndex);
-  if (cherryProbability <= 0) return officialRate;
+function getCherryTargetPayoutRate(machineKey, settingIndex, officialRate) {
+  const rates = CHERRY_TARGET_PAYOUT_RATES[machineKey];
+  if (!rates || !Number.isFinite(rates[settingIndex])) return officialRate;
+  return rates[settingIndex];
+}
 
-  const missedCoinsPerGame =
-    (1 - captureRate) * cherryProbability * CHERRY_PAYOUT;
-  const rateLoss = missedCoinsPerGame / 3 * 100;
-  return officialRate - rateLoss;
+function getAdjustedPayoutRate(machineKey, machine, settingIndex, captureRate) {
+  const officialRate = machine.specs[settingIndex][3];
+  const cherryTargetRate =
+    getCherryTargetPayoutRate(machineKey, settingIndex, officialRate);
+
+  return officialRate
+    + captureRate * (cherryTargetRate - officialRate);
+}
+
+function getAdjustedCoinHold(machineKey, machine, settingIndex, captureRate) {
+  const reference = COIN_HOLD_REFERENCE[machineKey];
+  if (!reference || !Number.isFinite(reference.values[settingIndex])) return null;
+
+  const referenceCoinHold = reference.values[settingIndex];
+  const referenceNetConsumption = 50 / referenceCoinHold;
+  const cherryProbability =
+    getCherryProbabilityForSetting(machine, settingIndex);
+
+  if (!Number.isFinite(cherryProbability) || cherryProbability <= 0) {
+    return referenceCoinHold;
+  }
+
+  const captureDifference =
+    reference.cherryCapture - captureRate;
+  const adjustedNetConsumption =
+    referenceNetConsumption
+    + captureDifference * cherryProbability * CHERRY_PAYOUT;
+
+  if (!Number.isFinite(adjustedNetConsumption) || adjustedNetConsumption <= 0) {
+    return null;
+  }
+
+  return 50 / adjustedNetConsumption;
 }
 
 function getReferenceRoleColumns(machine) {
@@ -1184,25 +1275,50 @@ function renderMachineReference() {
   const machine = MACHINES[machineKey];
   if (!machine) return;
 
-  const captureRate = clampNumber($('referenceCherryCapture').value, 0, 1);
+  const captureRate =
+    clampNumber($('referenceCherryCapture').value, 0, 1);
+  const coinReference = COIN_HOLD_REFERENCE[machineKey];
+
   $('referenceIntroduced').textContent = machine.introduced;
   $('referenceBigCoins').textContent = `${machine.bonusCoins[0]}枚`;
   $('referenceRegCoins').textContent = `${machine.bonusCoins[1]}枚`;
-  $('referenceMachineNote').textContent =
-    machine.note || '登録済みの機種別データを表示しています。';
+
+  const machineMessages = [];
+  if (machine.note) machineMessages.push(machine.note);
+  if (coinReference) {
+    machineMessages.push(`コイン持ち基準：${coinReference.note}`);
+  }
+  machineMessages.push(
+    captureRate === 0
+      ? '機械割はメーカー公表値（適当打ち基準）を表示しています。'
+      : captureRate === 1
+        ? '機械割はチェリー狙い参考値を表示しています。'
+        : `機械割は公表値からチェリー狙い参考値へ${Math.round(captureRate * 100)}%補間しています。`
+  );
+  $('referenceMachineNote').textContent = machineMessages.join('｜');
+
   $('referenceCaptureBadge').textContent =
-    `取得率${Math.round(captureRate * 100)}%`;
+    captureRate === 0
+      ? '公表値'
+      : captureRate === 1
+        ? 'チェリー狙い'
+        : `反映${Math.round(captureRate * 100)}%`;
 
   const body = $('referenceSpecBody');
   body.innerHTML = '';
 
   machine.specs.forEach((spec, settingIndex) => {
+    const officialRate = spec[3];
+    const cherryTargetRate =
+      getCherryTargetPayoutRate(machineKey, settingIndex, officialRate);
     const adjustedRate =
-      getAdjustedPayoutRate(machine, settingIndex, captureRate);
+      getAdjustedPayoutRate(machineKey, machine, settingIndex, captureRate);
     const expectedDiff1000 =
       3 * 1000 * (adjustedRate / 100 - 1);
     const cherryProbability =
       getCherryProbabilityForSetting(machine, settingIndex);
+    const coinHold =
+      getAdjustedCoinHold(machineKey, machine, settingIndex, captureRate);
 
     const row = document.createElement('tr');
     const diffClass =
@@ -1213,9 +1329,11 @@ function renderMachineReference() {
       <td>1/${spec[0]}</td>
       <td>1/${spec[1]}</td>
       <td>1/${spec[2]}</td>
-      <td>${spec[3].toFixed(1)}%</td>
+      <td>${officialRate.toFixed(1)}%</td>
+      <td class="cherry-target-rate">${cherryTargetRate.toFixed(2)}%</td>
       <td class="adjusted-rate">${adjustedRate.toFixed(2)}%</td>
       <td class="${diffClass}">${formatSigned(expectedDiff1000)}</td>
+      <td class="coin-hold-value">${coinHold ? `${coinHold.toFixed(2)}G` : '—'}</td>
       <td>${formatReferenceDenominator(cherryProbability)}</td>`;
     body.appendChild(row);
   });

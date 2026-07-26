@@ -1677,3 +1677,26 @@ textarea:focus {
 .machine-link-button:hover {
   text-decoration: underline;
 }
+
+
+/* v9: 公表値・チェリー狙い・コイン持ち */
+.reference-control-grid .field small {
+  display: block;
+  margin-top: 5px;
+  color: #6d7789;
+  font-size: 10px;
+  font-weight: 650;
+}
+.reference-spec-table th small {
+  color: #7c8696;
+  font-size: 9px;
+  font-weight: 700;
+}
+.cherry-target-rate {
+  color: #1568bd;
+  font-weight: 900;
+}
+.coin-hold-value {
+  color: #805300;
+  font-weight: 900;
+}
