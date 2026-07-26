@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
   <title>6号機ジャグラー 設定推測ツール</title>
-  <meta name="description" content="総回転数・BB・RB・差枚・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
+  <meta name="description" content="総回転数・BB・RB・差枚・逆算ブドウ・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -15,7 +15,7 @@
       <div>
         <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
         <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
-        <p class="lead">総回転・BB・RB・差枚・履歴をまとめて判定</p>
+        <p class="lead">BB・RB・差枚・逆算ブドウ・履歴をまとめて判定</p>
       </div>
       <div class="header-actions">
         <button id="loadSample" class="button header-button" type="button">入力例</button>
@@ -52,19 +52,38 @@
           <div class="quick-stat-grid">
             <label class="quick-field">
               <span>総回転数</span>
-              <div class="number-box"><input id="totalGames" inputmode="numeric" type="number" min="0" step="1" placeholder="7371"><em>G</em></div>
+              <div class="number-box">
+                <input id="totalGames" inputmode="numeric" type="number" min="0" step="1" value="0">
+                <em>G</em>
+              </div>
             </label>
-            <label class="quick-field">
+
+            <div class="quick-field diff-field">
               <span>差枚</span>
-              <div class="number-box"><input id="diffCoins" inputmode="numeric" type="number" step="1" placeholder="600"><em>枚</em></div>
-            </label>
+              <div class="signed-number-box">
+                <button id="diffSignToggle" class="sign-toggle" type="button" aria-label="差枚のプラスとマイナスを切り替える" aria-pressed="false">＋</button>
+                <div class="number-box">
+                  <input id="diffCoins" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <em>枚</em>
+                </div>
+              </div>
+              <p class="mini-note">左の＋／−で符号を変更</p>
+            </div>
+
             <label class="quick-field bb-field">
               <span>BB</span>
-              <div class="number-box"><input id="bbCount" inputmode="numeric" type="number" min="0" step="1" placeholder="28"><em>回</em></div>
+              <div class="number-box">
+                <input id="bbCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                <em>回</em>
+              </div>
             </label>
+
             <label class="quick-field rb-field">
               <span>RB</span>
-              <div class="number-box"><input id="rbCount" inputmode="numeric" type="number" min="0" step="1" placeholder="28"><em>回</em></div>
+              <div class="number-box">
+                <input id="rbCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                <em>回</em>
+              </div>
             </label>
           </div>
 
@@ -74,21 +93,53 @@
             <div><span>合算</span><strong id="liveCombined">—</strong></div>
           </div>
 
-          <details class="option-block">
+          <details class="option-block" open>
             <summary>推測条件</summary>
             <div class="option-content">
-              <div class="field">
-                <label for="priorMode">事前分布</label>
-                <select id="priorMode">
-                  <option value="uniform">均等（設定1〜6を同率）</option>
-                  <option value="hall">ホール想定（低設定寄り）</option>
-                </select>
+              <div class="field range-field no-top-margin">
+                <label for="grapeWeight">逆算ブドウの重み <strong id="grapeWeightValue">35%</strong></label>
+                <input id="grapeWeight" type="range" min="0" max="70" step="5" value="35">
+                <p class="field-note">0%はBB・RBのみ。差枚はブドウ確率へ逆算して判定に加えます。</p>
               </div>
-              <div class="field range-field">
-                <label for="diffWeight">差枚補正 <strong id="diffWeightValue">20%</strong></label>
-                <input id="diffWeight" type="range" min="0" max="50" step="5" value="20">
-                <p class="field-note">0%はBB・RBのみ。差枚は荒れやすいため初期値は20%です。</p>
-              </div>
+
+              <details class="nested-option">
+                <summary>設定配分を変更</summary>
+                <div class="allocation-toolbar">
+                  <button class="button tiny prior-preset" data-preset="uniform" type="button">均等</button>
+                  <button class="button tiny prior-preset" data-preset="hall" type="button">低設定寄り</button>
+                  <button class="button tiny prior-preset" data-preset="middle" type="button">中間中心</button>
+                  <button class="button tiny prior-preset" data-preset="event" type="button">強い日</button>
+                </div>
+                <div id="priorEditor" class="prior-editor"></div>
+                <div class="prior-footer">
+                  <span>入力合計 <strong id="priorTotal">100.00%</strong></span>
+                  <button id="normalizePrior" class="button tiny secondary" type="button">100%に正規化</button>
+                </div>
+                <p class="field-note">分析時は入力値の比率を自動で正規化します。設定6を使わない想定なら0%にできます。</p>
+              </details>
+
+              <details class="nested-option">
+                <summary>ブドウ逆算の詳細設定</summary>
+                <div class="advanced-grid">
+                  <label class="field">
+                    <span>リプレイ確率</span>
+                    <div class="fraction-input"><span>1 /</span><input id="replayDenom" type="number" min="1" step="0.001" value="7.298"></div>
+                  </label>
+                  <label class="field">
+                    <span>チェリー確率</span>
+                    <div class="fraction-input"><span>1 /</span><input id="cherryDenom" type="number" min="1" step="0.01" value="34.66"></div>
+                  </label>
+                  <label class="field">
+                    <span>チェリー取得率</span>
+                    <select id="cherryCapture">
+                      <option value="1">100%（チェリー狙い）</option>
+                      <option value="0.5">50%（一部取得）</option>
+                      <option value="0">0%（未取得扱い）</option>
+                    </select>
+                  </label>
+                </div>
+                <p class="field-note">ベル・ピエロ、ボーナスを揃えるまでのロス、データ機器の集計差は含みません。</p>
+              </details>
             </div>
           </details>
 
@@ -153,7 +204,7 @@
           <details class="option-block import-block">
             <summary>テキストでまとめて入力・編集</summary>
             <div class="option-content">
-              <p class="field-note">1行ずつ <code>107 BB</code>、<code>245 RB</code> の形式。順序は古い履歴から入力します。</p>
+              <p class="field-note">1行ずつ <code>107 BB</code>、<code>245 RB</code> の形式。古い履歴から入力します。</p>
               <textarea id="historyInput" rows="8" placeholder="107 BB&#10;88 RB&#10;250 BB"></textarea>
               <div class="field compact-current">
                 <label for="currentGames">最終ボーナス後の現在G数</label>
@@ -195,13 +246,15 @@
             </div>
           </article>
 
-          <div class="metric-grid">
+          <div class="metric-grid result-metrics">
             <article class="metric"><span>BB確率</span><strong id="actualBB">—</strong></article>
             <article class="metric"><span>RB確率</span><strong id="actualRB">—</strong></article>
             <article class="metric"><span>合算</span><strong id="actualCombined">—</strong></article>
+            <article class="metric grape-highlight"><span>逆算ブドウ</span><strong id="actualGrape">—</strong></article>
             <article class="metric highlight"><span>設定4以上</span><strong id="prob4Plus">—</strong></article>
             <article class="metric highlight"><span>設定5以上</span><strong id="prob5Plus">—</strong></article>
             <article class="metric"><span>推定設定平均</span><strong id="expectedSetting">—</strong></article>
+            <article class="metric"><span>設定配分</span><strong id="priorSummary">—</strong></article>
           </div>
 
           <section class="subpanel">
@@ -212,11 +265,27 @@
             <div id="probabilityBars" class="probability-bars"></div>
           </section>
 
+          <section class="subpanel grape-panel">
+            <div class="subpanel-title">
+              <h3>差枚からのブドウ逆算</h3>
+              <span id="grapeStatusBadge" class="status-pill">—</span>
+            </div>
+            <div class="grape-breakdown">
+              <div><span>総アウト推定</span><strong id="grapeTotalOut">—</strong></div>
+              <div><span>ボーナス獲得</span><strong id="grapeBonusOut">—</strong></div>
+              <div><span>リプレイ推定</span><strong id="grapeReplayOut">—</strong></div>
+              <div><span>チェリー推定</span><strong id="grapeCherryOut">—</strong></div>
+              <div><span>ブドウ獲得</span><strong id="grapePayoutTotal">—</strong></div>
+              <div><span>ブドウ回数</span><strong id="grapeCount">—</strong></div>
+            </div>
+            <p id="grapeCaution" class="field-note"></p>
+          </section>
+
           <section class="subpanel table-section">
-            <h3>実測値と公表スペック</h3>
+            <h3>実測値と設定別スペック</h3>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>設定</th><th>BB</th><th>RB</th><th>合算</th><th>出玉率</th><th>期待差枚</th><th>確率</th></tr></thead>
+                <thead><tr><th>設定</th><th>BB</th><th>RB</th><th>合算</th><th>ブドウ参考</th><th>出玉率</th><th>期待差枚</th><th>確率</th></tr></thead>
                 <tbody id="specComparisonBody"></tbody>
               </table>
             </div>
@@ -278,12 +347,12 @@
           </div>
         </div>
         <div class="method-grid">
-          <article><h3>BB・RB</h3><p>各ゲームをBB・RB・非当選に分け、機種ごとの公表確率に対する尤度を計算します。合算だけでなくBBとRBを別々に評価します。</p></article>
-          <article><h3>差枚</h3><p>公表出玉率から設定別の期待差枚を求め、広い分散を置いた参考尤度として合成します。差枚補正は0〜50%で調整できます。</p></article>
-          <article><h3>履歴</h3><p>100G・200G以内率、平均当選G、最大ハマりを表示します。完全履歴の当選間隔は総回転数と回数にほぼ集約されるため、主判定には二重加点しません。</p></article>
-          <article><h3>限界</h3><p>表示は実設定の確定値ではなく、入力値と各設定スペックの整合度です。低回転では確率が大きく変動します。</p></article>
+          <article><h3>BB・RB</h3><p>各ゲームをBB・RB・非当選に分け、機種ごとの設定別確率に対する尤度を計算します。合算だけでなくBBとRBを分けて評価します。</p></article>
+          <article><h3>設定配分</h3><p>ユーザーが設定1〜6の投入割合を指定できます。入力値は分析時に合計100%へ正規化し、事前確率として反映します。</p></article>
+          <article><h3>逆算ブドウ</h3><p>総アウトからボーナス・推定リプレイ・推定チェリーを差し引き、残りを8枚役のブドウとして逆算します。設定別ブドウ参考値との尤度を判定へ加えます。</p></article>
+          <article><h3>限界</h3><p>ブドウは実測ではなく差枚からの推定です。ベル・ピエロ、目押しロス、取りこぼし、データ機器の集計差で数値が動くため、BB・RBより低い重みで使ってください。</p></article>
         </div>
-        <p class="source-note">外部通信なし。入力内容はこの端末のブラウザ内に保存されます。静的ファイルだけで動作するためGitHub Pagesに配置できます。</p>
+        <p class="source-note">外部通信なし。入力内容はブラウザ内に保存されます。静的ファイルだけで動作するためGitHub Pagesに配置できます。</p>
       </section>
     </section>
   </main>
