@@ -120,7 +120,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v7';
+const STORAGE_KEY = 'juggler-setting-analyzer-v8';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -138,6 +138,14 @@ Object.entries(MACHINES).forEach(([key, machine]) => {
   option.value = key;
   option.textContent = `${machine.name}（${machine.introduced}）`;
   machineSelect.appendChild(option);
+});
+
+const referenceMachineSelect = $('referenceMachineSelect');
+Object.entries(MACHINES).forEach(([key, machine]) => {
+  const option = document.createElement('option');
+  option.value = key;
+  option.textContent = `${machine.name}（${machine.introduced}）`;
+  referenceMachineSelect.appendChild(option);
 });
 
 function buildPriorEditor() {
@@ -1061,7 +1069,166 @@ function drawHistoryChart(entries) {
   });
 }
 
+function getCherryProbabilityForSetting(machine, settingIndex) {
+  let probability = 0;
+
+  if (machine.roles.nonCherry) {
+    probability += 1 / machine.roles.nonCherry.denoms[settingIndex];
+  } else if (machine.roles.cherry) {
+    probability += 1 / machine.roles.cherry.denoms[settingIndex];
+  }
+
+  ['cherryBB', 'cherryRB', 'rareCherryBB'].forEach((key) => {
+    if (machine.roles[key]) {
+      probability += 1 / machine.roles[key].denoms[settingIndex];
+    }
+  });
+
+  if (machine.roles.cherryBonus) {
+    probability += 1 / machine.roles.cherryBonus.denoms[settingIndex];
+  }
+
+  return probability;
+}
+
+function formatReferenceDenominator(probability, digits = 2) {
+  if (!Number.isFinite(probability) || probability <= 0) return '—';
+  return `1/${(1 / probability).toFixed(digits)}`;
+}
+
+function getAdjustedPayoutRate(machine, settingIndex, captureRate) {
+  const officialRate = machine.specs[settingIndex][3];
+  const cherryProbability = getCherryProbabilityForSetting(machine, settingIndex);
+  if (cherryProbability <= 0) return officialRate;
+
+  const missedCoinsPerGame =
+    (1 - captureRate) * cherryProbability * CHERRY_PAYOUT;
+  const rateLoss = missedCoinsPerGame / 3 * 100;
+  return officialRate - rateLoss;
+}
+
+function getReferenceRoleColumns(machine) {
+  const preferred = [
+    'grape',
+    'cherry',
+    'nonCherry',
+    'singleBB',
+    'singleRB',
+    'cherryBB',
+    'cherryRB',
+    'rareCherryBB',
+    'cherryBonus'
+  ];
+
+  return preferred.filter((key) => machine.roles[key]);
+}
+
+function renderReferenceRoleTable(machine) {
+  const roleKeys = getReferenceRoleColumns(machine);
+  const head = $('referenceRoleHead');
+  const body = $('referenceRoleBody');
+
+  head.innerHTML = `
+    <tr>
+      <th>設定</th>
+      ${roleKeys.map((key) => `<th>${machine.roles[key].label}</th>`).join('')}
+    </tr>`;
+
+  body.innerHTML = '';
+  machine.specs.forEach((_, settingIndex) => {
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>設定${settingIndex + 1}</td>
+      ${roleKeys.map((key) => {
+        const denominator = machine.roles[key].denoms[settingIndex];
+        return `<td>${Number.isFinite(denominator) ? `1/${denominator}` : '—'}</td>`;
+      }).join('')}`;
+    body.appendChild(row);
+  });
+}
+
+function renderAllMachineComparison() {
+  const body = $('allMachineCompareBody');
+  body.innerHTML = '';
+
+  Object.entries(MACHINES).forEach(([key, machine]) => {
+    const grape = machine.roles.grape;
+    const row = document.createElement('tr');
+    row.dataset.machineKey = key;
+    row.innerHTML = `
+      <td>
+        <button class="machine-link-button" type="button" data-machine-key="${key}">
+          ${machine.name}
+        </button>
+      </td>
+      <td>1/${machine.specs[0][2]}</td>
+      <td>1/${machine.specs[5][2]}</td>
+      <td>${machine.specs[0][3].toFixed(1)}%</td>
+      <td>${machine.specs[5][3].toFixed(1)}%</td>
+      <td>${grape ? `1/${grape.denoms[0]}` : '—'}</td>
+      <td>${grape ? `1/${grape.denoms[5]}` : '—'}</td>`;
+    body.appendChild(row);
+  });
+
+  body.querySelectorAll('.machine-link-button').forEach((button) => {
+    button.addEventListener('click', () => {
+      referenceMachineSelect.value = button.dataset.machineKey;
+      renderMachineReference();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+}
+
+function renderMachineReference() {
+  const machineKey = referenceMachineSelect.value || machineSelect.value;
+  const machine = MACHINES[machineKey];
+  if (!machine) return;
+
+  const captureRate = clampNumber($('referenceCherryCapture').value, 0, 1);
+  $('referenceIntroduced').textContent = machine.introduced;
+  $('referenceBigCoins').textContent = `${machine.bonusCoins[0]}枚`;
+  $('referenceRegCoins').textContent = `${machine.bonusCoins[1]}枚`;
+  $('referenceMachineNote').textContent =
+    machine.note || '登録済みの機種別データを表示しています。';
+  $('referenceCaptureBadge').textContent =
+    `取得率${Math.round(captureRate * 100)}%`;
+
+  const body = $('referenceSpecBody');
+  body.innerHTML = '';
+
+  machine.specs.forEach((spec, settingIndex) => {
+    const adjustedRate =
+      getAdjustedPayoutRate(machine, settingIndex, captureRate);
+    const expectedDiff1000 =
+      3 * 1000 * (adjustedRate / 100 - 1);
+    const cherryProbability =
+      getCherryProbabilityForSetting(machine, settingIndex);
+
+    const row = document.createElement('tr');
+    const diffClass =
+      expectedDiff1000 >= 0 ? 'positive-diff' : 'negative-diff';
+
+    row.innerHTML = `
+      <td>設定${settingIndex + 1}</td>
+      <td>1/${spec[0]}</td>
+      <td>1/${spec[1]}</td>
+      <td>1/${spec[2]}</td>
+      <td>${spec[3].toFixed(1)}%</td>
+      <td class="adjusted-rate">${adjustedRate.toFixed(2)}%</td>
+      <td class="${diffClass}">${formatSigned(expectedDiff1000)}</td>
+      <td>${formatReferenceDenominator(cherryProbability)}</td>`;
+    body.appendChild(row);
+  });
+
+  renderReferenceRoleTable(machine);
+}
+
 function setActiveTab(tabName, scrollTop = true) {
+  if (tabName === 'reference') {
+    referenceMachineSelect.value = machineSelect.value;
+    renderMachineReference();
+  }
+
   document.querySelectorAll('.tab-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.tab === tabName);
   });
@@ -1642,8 +1809,22 @@ function bindEvents() {
     renderRoleInputs();
     updateMachineNote();
     updateHistoryViews();
+    referenceMachineSelect.value = machineSelect.value;
+    renderMachineReference();
     saveState();
   });
+
+  referenceMachineSelect.addEventListener('change', () => {
+    machineSelect.value = referenceMachineSelect.value;
+    pendingRoleCounts = {};
+    renderRoleInputs();
+    updateMachineNote();
+    updateHistoryViews();
+    renderMachineReference();
+    saveState();
+  });
+
+  $('referenceCherryCapture').addEventListener('change', renderMachineReference);
 
   ['totalGames','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
     .forEach((id) => {
@@ -1672,3 +1853,6 @@ updateLiveRates();
 updateRoleRates();
 updatePriorTotal();
 updateHistoryViews();
+referenceMachineSelect.value = machineSelect.value;
+renderMachineReference();
+renderAllMachineComparison();

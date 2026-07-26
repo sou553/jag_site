@@ -5,9 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
-  <title>6号機ジャグラー 設定推測ツール v7</title>
+  <title>6号機ジャグラー 設定推測ツール v8</title>
   <meta name="description" content="総回転数・BB・RB・差枚・実測小役・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
-  <link rel="icon" type="image/png" href="./mini.jpg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -29,6 +28,7 @@
     <button class="tab-button active" data-tab="input" type="button">入力</button>
     <button class="tab-button" data-tab="result" type="button">結果</button>
     <button class="tab-button" data-tab="history" type="button">履歴分析</button>
+    <button class="tab-button" data-tab="reference" type="button">機種データ</button>
     <button class="tab-button" data-tab="about" type="button">仕様</button>
   </nav>
 
@@ -501,7 +501,7 @@
                 <h3>実測値と設定別スペック</h3>
                 <p id="nearestSpecSummary" class="field-note nearest-explanation">各実測確率に近い設定を色付きで表示します。</p>
               </div>
-              <div class="nearest-legend" aria-label="最接近表示の凡例">
+              <div class="nearest-legend" aria-label="近似表示の凡例">
                 <span class="legend-chip legend-bb"><i></i>BB</span>
                 <span class="legend-chip legend-rb"><i></i>RB</span>
                 <span class="legend-chip legend-combined"><i></i>合算</span>
@@ -563,6 +563,140 @@
       </section>
     </section>
 
+
+    <section id="tab-reference" class="tab-page" data-page="reference">
+      <section class="panel reference-panel">
+        <div class="panel-heading reference-heading">
+          <div>
+            <p class="section-kicker">MACHINE REFERENCE</p>
+            <h2>機種別・設定別データ</h2>
+            <p class="panel-description reference-description">
+              ボーナス確率、機械割、小役確率、単独・チェリー重複確率を同じページで確認できます。
+            </p>
+          </div>
+          <span class="status-pill">設定1〜6</span>
+        </div>
+
+        <div class="reference-control-grid">
+          <label class="field reference-machine-field">
+            <span>表示する機種</span>
+            <select id="referenceMachineSelect"></select>
+          </label>
+
+          <label class="field">
+            <span>チェリー取得率</span>
+            <select id="referenceCherryCapture">
+              <option value="1">100%（完全取得）</option>
+              <option value="0.9">90%</option>
+              <option value="0.8">80%</option>
+              <option value="0.5">50%</option>
+              <option value="0">0%（全て取りこぼし）</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="reference-summary-grid">
+          <article class="reference-summary-card">
+            <span>導入時期</span>
+            <strong id="referenceIntroduced">—</strong>
+          </article>
+          <article class="reference-summary-card">
+            <span>BIG獲得枚数</span>
+            <strong id="referenceBigCoins">—</strong>
+          </article>
+          <article class="reference-summary-card">
+            <span>REG獲得枚数</span>
+            <strong id="referenceRegCoins">—</strong>
+          </article>
+          <article class="reference-summary-card">
+            <span>リプレイ確率</span>
+            <strong>1/7.298</strong>
+          </article>
+        </div>
+
+        <p id="referenceMachineNote" class="reference-note"></p>
+
+        <section class="subpanel table-section">
+          <div class="subpanel-title">
+            <div>
+              <h3>基本スペック・機械割</h3>
+              <p class="field-note">
+                チェリー取得補正は、取りこぼした2枚役分を公表機械割から差し引いた参考値です。
+              </p>
+            </div>
+            <span id="referenceCaptureBadge" class="status-pill">取得率100%</span>
+          </div>
+          <div class="table-wrap reference-table-wrap">
+            <table class="reference-spec-table">
+              <thead>
+                <tr>
+                  <th>設定</th>
+                  <th>BB</th>
+                  <th>RB</th>
+                  <th>合算</th>
+                  <th>公表機械割</th>
+                  <th>取得補正後</th>
+                  <th>1000G期待差枚</th>
+                  <th>総チェリー</th>
+                </tr>
+              </thead>
+              <tbody id="referenceSpecBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="subpanel table-section">
+          <div class="subpanel-title">
+            <div>
+              <h3>小役・単独／重複ボーナス確率</h3>
+              <p class="field-note">
+                機種に登録されている項目だけ表示します。未公表・未登録項目は「—」です。
+              </p>
+            </div>
+          </div>
+          <div class="table-wrap reference-table-wrap">
+            <table id="referenceRoleTable" class="reference-role-table">
+              <thead id="referenceRoleHead"></thead>
+              <tbody id="referenceRoleBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="subpanel table-section">
+          <div class="subpanel-title">
+            <div>
+              <h3>全機種の設定1・設定6比較</h3>
+              <p class="field-note">収録機種の低設定側と高設定側を一覧で比較します。</p>
+            </div>
+          </div>
+          <div class="table-wrap reference-table-wrap">
+            <table class="all-machine-table">
+              <thead>
+                <tr>
+                  <th>機種</th>
+                  <th>設定1合算</th>
+                  <th>設定6合算</th>
+                  <th>設定1機械割</th>
+                  <th>設定6機械割</th>
+                  <th>設定1ブドウ</th>
+                  <th>設定6ブドウ</th>
+                </tr>
+              </thead>
+              <tbody id="allMachineCompareBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <div class="reference-caution">
+          <strong>数値の扱い</strong>
+          <p>
+            BB・RB・合算・公表機械割はメーカー公表値を基本とします。
+            ブドウ、チェリー、単独・重複確率には解析・推定値が含まれるため、設定推測では証拠強度を調整します。
+          </p>
+        </div>
+      </section>
+    </section>
+
     <section id="tab-about" class="tab-page" data-page="about">
       <section class="panel method-panel">
         <div class="panel-heading">
@@ -571,12 +705,59 @@
             <h2>計算方法と注意点</h2>
           </div>
         </div>
-        <div class="method-grid">
-          <article><h3>BB・RB</h3><p>各ゲームをBB・RB・非当選に分け、機種ごとの設定別確率に対する尤度を計算します。合算だけでなくBBとRBを分けて評価します。</p></article>
-          <article><h3>設定配分</h3><p>ユーザーが設定1〜6の投入割合を指定できます。入力値は分析時に合計100%へ正規化し、事前確率として反映します。</p></article>
-          <article><h3>小役の統合</h3><p>差枚逆算または実測入力を選べます。空欄の小役は完全に除外し、入力した項目だけを追加尤度として使います。</p></article>
-          <article><h3>計算上の扱い</h3><p>BB・RB尤度は常に100%です。小役は証拠強度を掛けて追加します。差枚逆算は誤差が大きいため、実測小役より弱く扱います。</p></article>
+        <div class="method-flow">
+          <article>
+            <span>1</span>
+            <div><h3>設定配分</h3><p>補正OFFでは設定1〜6を均等に扱います。補正ONでは入力したホール配分を事前確率として使います。</p></div>
+          </article>
+          <article>
+            <span>2</span>
+            <div><h3>BB・RB・非当選</h3><p>総回転数をBB、RB、非当選に分け、各設定でその結果が発生する尤度を計算します。</p></div>
+          </article>
+          <article>
+            <span>3</span>
+            <div><h3>単独・チェリー重複</h3><p>内訳が判明しているボーナスだけを使い、ボーナス当選時に単独だった割合を条件付き尤度として追加します。</p></div>
+          </article>
+          <article>
+            <span>4</span>
+            <div><h3>小役</h3><p>実測小役または差枚逆算ブドウを追加します。取りこぼし補正と証拠強度を掛け、未入力項目は除外します。</p></div>
+          </article>
+          <article>
+            <span>5</span>
+            <div><h3>正規化</h3><p>設定1〜6の対数スコアを指数変換し、合計100%の相対確率へ変換します。</p></div>
+          </article>
         </div>
+
+        <section class="formula-panel">
+          <h3>総合スコア</h3>
+          <pre>log score(s)
+= log prior(s)
++ log L(BB, RB, 非当選 | s)
++ log L(単独/重複内訳 | ボーナス, s)
++ 小役証拠強度 × Σ log L(入力小役 | s)</pre>
+          <p>
+            <code>s</code>は設定1〜6です。最後にsoftmaxで正規化します。
+            機械割は現在、期待差枚と資料表示に使用し、設定確率へ直接は加えていません。
+          </p>
+        </section>
+
+        <section class="formula-panel">
+          <h3>差枚からのブドウ逆算</h3>
+          <pre>総アウト推定 = 3 × 総回転数 + 差枚
+推定ブドウ回数
+= (総アウト推定 − ボーナス獲得 − リプレイ獲得 − チェリー獲得) ÷ 8</pre>
+          <p>
+            ベル、ピエロ、目押しロス、データ機器の差があるため、逆算ブドウは初期25%の弱い証拠として扱います。
+          </p>
+        </section>
+
+        <section class="formula-panel">
+          <h3>機械割を直接推測へ入れない理由</h3>
+          <p>
+            差枚は短期分散が大きく、差枚逆算ブドウと同時に使うと同じ情報を二重評価します。
+            機械割を推測へ追加する場合は、差枚の実測分散を機種別・回転数別に推定した専用モードが必要です。
+          </p>
+        </section>
         <p class="source-note">外部通信なし。入力内容はブラウザ内に保存されます。静的ファイルだけで動作するためGitHub Pagesに配置できます。</p>
       </section>
     </section>
