@@ -1773,3 +1773,179 @@ input[type="number"]::-webkit-outer-spin-button {
     font-size: clamp(19px, 6.8vw, 25px);
   }
 }
+
+
+/* v11: 差枚入力をスマートフォンで全桁表示 */
+.diff-input-layout {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: stretch;
+  width: 100%;
+  min-width: 0;
+  gap: 7px;
+}
+
+.diff-input-layout .sign-toggle {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+}
+
+.diff-value-box {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 51px;
+  overflow: hidden;
+  border: 1px solid #cdd3dc;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.diff-value-box:focus-within {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px rgba(31, 111, 229, .12);
+}
+
+#diffCoins {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  min-height: 49px;
+  padding: 4px 6px 4px 10px;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: right;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: 27px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.035em;
+  box-shadow: none;
+}
+
+#diffCoins:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+#diffCoins::placeholder {
+  color: #a0a8b5;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.diff-unit {
+  flex: 0 0 auto;
+  padding: 0 11px 0 4px;
+  color: #687182;
+  font-size: 13px;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+/* 入力桁数に応じて自動縮小 */
+#diffCoins.diff-digits-5 {
+  font-size: 24px;
+}
+
+#diffCoins.diff-digits-6 {
+  font-size: 21px;
+}
+
+#diffCoins.diff-digits-7 {
+  font-size: 18px;
+}
+
+#diffCoins.diff-digits-8plus {
+  font-size: 16px;
+  letter-spacing: -0.055em;
+}
+
+@media (max-width: 640px) {
+  /* 総回転数と差枚を横半分にせず、入力幅を確保する */
+  .quick-stat-grid > .quick-field:first-child,
+  .quick-stat-grid > .diff-field {
+    grid-column: 1 / -1;
+  }
+
+  .diff-input-layout {
+    grid-template-columns: 46px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .diff-input-layout .sign-toggle {
+    width: 46px;
+    min-width: 46px;
+    max-width: 46px;
+  }
+
+  #diffCoins {
+    padding-left: 12px;
+    padding-right: 8px;
+    font-size: 30px;
+  }
+
+  #diffCoins.diff-digits-5 {
+    font-size: 28px;
+  }
+
+  #diffCoins.diff-digits-6 {
+    font-size: 25px;
+  }
+
+  #diffCoins.diff-digits-7 {
+    font-size: 22px;
+  }
+
+  #diffCoins.diff-digits-8plus {
+    font-size: 19px;
+  }
+
+  .diff-unit {
+    padding-right: 13px;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 390px) {
+  .diff-input-layout {
+    grid-template-columns: 42px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .diff-input-layout .sign-toggle {
+    width: 42px;
+    min-width: 42px;
+    max-width: 42px;
+  }
+
+  #diffCoins {
+    font-size: 28px;
+  }
+
+  #diffCoins.diff-digits-5 {
+    font-size: 26px;
+  }
+
+  #diffCoins.diff-digits-6 {
+    font-size: 23px;
+  }
+
+  #diffCoins.diff-digits-7 {
+    font-size: 20px;
+  }
+
+  #diffCoins.diff-digits-8plus {
+    font-size: 17px;
+  }
+}

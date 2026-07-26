@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
-  <title>6号機ジャグラー 設定推測ツール v10</title>
+  <title>6号機ジャグラー 設定推測ツール v11</title>
   <meta name="description" content="総回転数・BB・RB・差枚・実測小役・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
-  <link rel="stylesheet" href="style.css">
   <link rel="icon" type="image/png" href="./img/mini.jpg">
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="site-header">
@@ -62,11 +62,11 @@
 
             <div class="quick-field diff-field">
               <span>差枚</span>
-              <div class="signed-number-box">
+              <div class="signed-number-box diff-input-layout">
                 <button id="diffSignToggle" class="sign-toggle" type="button" aria-label="差枚のプラスとマイナスを切り替える" aria-pressed="false">＋</button>
-                <div class="number-box">
-                  <input id="diffCoins" inputmode="numeric" type="text" pattern="[0-9]*" autocomplete="off" placeholder="差枚">
-                  <em>枚</em>
+                <div class="diff-value-box">
+                  <input id="diffCoins" inputmode="numeric" type="text" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" placeholder="差枚">
+                  <span class="diff-unit">枚</span>
                 </div>
               </div>
               <p class="mini-note">左の＋／−で符号を変更</p>

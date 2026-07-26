@@ -181,7 +181,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v10';
+const STORAGE_KEY = 'juggler-setting-analyzer-v11';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -404,6 +404,24 @@ function getReverseCherryDenom(machine) {
 function updateReverseCherryNote() {
   const denom = getReverseCherryDenom(MACHINES[machineSelect.value]);
   $('reverseCherryNote').textContent = `逆算ではリプレイ1/7.298固定、${MACHINES[machineSelect.value].name}の登録小役値からチェリー約1/${denom.toFixed(2)}を使用します。`;
+}
+
+function updateDiffInputSize() {
+  const input = $('diffCoins');
+  if (!input) return;
+
+  const length = normalizeUnsignedNumericInput(input.value).length;
+  input.classList.remove(
+    'diff-digits-5',
+    'diff-digits-6',
+    'diff-digits-7',
+    'diff-digits-8plus'
+  );
+
+  if (length >= 8) input.classList.add('diff-digits-8plus');
+  else if (length === 7) input.classList.add('diff-digits-7');
+  else if (length === 6) input.classList.add('diff-digits-6');
+  else if (length === 5) input.classList.add('diff-digits-5');
 }
 
 function normalizeUnsignedNumericInput(value) {
@@ -1690,6 +1708,7 @@ function loadState() {
       const signed = Number(state.diffCoins) || 0;
       diffSign = signed < 0 ? -1 : 1;
       $('diffCoins').value = signed === 0 ? '' : String(Math.abs(signed));
+      updateDiffInputSize();
     }
     if (typeof state.reverseHistory === 'boolean') $('reverseHistory').checked = state.reverseHistory;
     if (typeof state.usePriorCorrection === 'boolean') $('usePriorCorrection').checked = state.usePriorCorrection;
@@ -1725,6 +1744,7 @@ function resetAll() {
   $('bbCount').value = '0';
   $('rbCount').value = '0';
   $('diffCoins').value = '';
+  updateDiffInputSize();
   diffSign = 1;
   $('historyInput').value = '';
   $('currentGames').value = '0';
@@ -1772,6 +1792,7 @@ function loadSample() {
   $('cherryRBCount').value = '0';
   $('unknownRBCount').value = '0';
   $('diffCoins').value = '566';
+  updateDiffInputSize();
   diffSign = -1;
   $('historyInput').value = '455 SBB\n698 SRB\n246 CBB\n0 SBB\n0 SBB';
   $('currentGames').value = '0';
@@ -1907,6 +1928,7 @@ function bindEvents() {
     if ($('diffCoins').value !== normalized) {
       $('diffCoins').value = normalized;
     }
+    updateDiffInputSize();
   });
   $('normalizePrior').addEventListener('click', normalizePriorInputs);
 
@@ -1978,6 +2000,7 @@ updateMachineNote();
 updateEvidenceWeightLabels();
 updatePriorUsage();
 updateDiffSignButton();
+updateDiffInputSize();
 updateKeypadDisplay();
 updateLiveRates();
 updateRoleRates();
