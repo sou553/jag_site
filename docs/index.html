@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light dark">
-  <title>6号機ジャグラー 設定推測ツール v13</title>
+  <title>6号機ジャグラー 設定推測ツール v14</title>
   <meta name="description" content="総回転数・BB・RB・任意の差枚・実測小役から6号機ジャグラーの設定別相対確率を計算し、ボーナス履歴を台データへ自動同期するWebツールです。">
   <link rel="icon" type="image/png" href="./img/mini.jpg">
   <script>
@@ -17,7 +17,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
   <header class="site-header">
@@ -39,11 +39,11 @@
   </header>
 
   <nav class="tab-nav" aria-label="画面切り替え">
-    <button class="tab-button active" data-tab="input" type="button">入力</button>
-    <button class="tab-button" data-tab="result" type="button">結果</button>
-    <button class="tab-button" data-tab="history" type="button">履歴分析</button>
-    <button class="tab-button" data-tab="reference" type="button">機種データ</button>
-    <button class="tab-button" data-tab="about" type="button">仕様</button>
+    <button class="tab-button active" data-tab="input" type="button"><span class="tab-label-long">入力</span><span class="tab-label-short">入力</span></button>
+    <button class="tab-button" data-tab="result" type="button"><span class="tab-label-long">結果</span><span class="tab-label-short">結果</span></button>
+    <button class="tab-button" data-tab="history" type="button"><span class="tab-label-long">履歴分析</span><span class="tab-label-short">履歴</span></button>
+    <button class="tab-button" data-tab="reference" type="button"><span class="tab-label-long">機種データ</span><span class="tab-label-short">データ</span></button>
+    <button class="tab-button" data-tab="about" type="button"><span class="tab-label-long">仕様</span><span class="tab-label-short">説明</span></button>
   </nav>
 
   <main class="app-shell">
@@ -530,6 +530,7 @@
             </div>
 
             <div class="evidence-summary-grid">
+              <article class="evidence-top-pair"><span>1位／2位</span><strong id="evidenceTopPair">—</strong></article>
               <article><span>1位と2位の差</span><strong id="evidenceTopGap">—</strong></article>
               <article><span>設定1〜3</span><strong id="evidenceLowProbability">—</strong></article>
               <article><span>設定4〜6</span><strong id="evidenceHighProbability">—</strong></article>
@@ -657,23 +658,44 @@
           <span class="status-pill">設定1〜6</span>
         </div>
 
-        <div class="reference-control-grid">
+        <div class="reference-control-grid reference-control-grid-v14">
           <label class="field reference-machine-field">
             <span>表示する機種</span>
             <select id="referenceMachineSelect"></select>
           </label>
 
           <label class="field">
-            <span>打ち方・チェリー取得</span>
-            <select id="referenceCherryCapture">
-              <option value="0">公表値（適当打ち）</option>
-              <option value="0.5">チェリー狙い 50%反映</option>
-              <option value="0.8">チェリー狙い 80%反映</option>
-              <option value="0.9">チェリー狙い 90%反映</option>
-              <option value="1" selected>チェリー狙い（参考値）</option>
+            <span>機械割の表示条件</span>
+            <select id="referencePayoutMode">
+              <option value="official" selected>公表値（適当打ち）</option>
+              <option value="cherry">チェリー狙い参考値</option>
+              <option value="interpolate">概算補間</option>
             </select>
-            <small>公表値を基準に、チェリー狙い時の参考機械割へ補正します。</small>
+            <small>公表値とチェリー狙い参考値を明確に分けます。</small>
           </label>
+
+          <label class="field">
+            <span>コイン持ち条件</span>
+            <select id="referenceCoinMode">
+              <option value="reference" selected>掲載元の条件</option>
+              <option value="0">チェリー取得0%・概算</option>
+              <option value="0.5">チェリー取得50%・概算</option>
+              <option value="0.8">チェリー取得80%・概算</option>
+              <option value="1">チェリー取得100%・概算</option>
+            </select>
+            <small>「掲載元の条件」が推奨です。その他は小役確率からの概算です。</small>
+          </label>
+        </div>
+
+        <div id="referenceInterpolationPanel" class="reference-interpolation-panel hidden">
+          <div>
+            <strong>概算補間率</strong>
+            <p>公表値からチェリー狙い参考値までを直線補間します。実測値ではありません。</p>
+          </div>
+          <div class="reference-interpolation-control">
+            <input id="referenceInterpolationRate" type="range" min="0" max="100" step="5" value="50">
+            <strong id="referenceInterpolationValue">50%</strong>
+          </div>
         </div>
 
         <div class="reference-summary-grid">
@@ -697,15 +719,26 @@
 
         <p id="referenceMachineNote" class="reference-note"></p>
 
+        <section class="reference-source-section">
+          <div class="reference-source-heading">
+            <div>
+              <h3>出典・更新日</h3>
+              <p>公式値、解析値、独自計算値を区別して表示します。</p>
+            </div>
+            <span id="referenceReviewedAt" class="status-pill">データ確認 —</span>
+          </div>
+          <div id="referenceSourceList" class="reference-source-list"></div>
+        </section>
+
         <section class="subpanel table-section">
           <div class="subpanel-title">
             <div>
               <h3>基本スペック・機械割</h3>
               <p class="field-note">
-                公表値は適当打ち基準です。選択条件では、公表値からチェリー狙い時の参考機械割へ補間します。
+                公表値とチェリー狙い参考値を別列で表示します。「概算補間」を選んだ場合だけ直線補間します。
               </p>
             </div>
-            <span id="referenceCaptureBadge" class="status-pill">チェリー狙い</span>
+            <span id="referenceCaptureBadge" class="status-pill">公表値</span>
           </div>
           <div class="table-wrap reference-table-wrap">
             <table class="reference-spec-table">
@@ -773,9 +806,9 @@
         <div class="reference-caution">
           <strong>数値の扱い</strong>
           <p>
-            公表機械割は適当打ち基準であり、完全小役取得値ではありません。
-            「チェリー狙い参考」はジャグラー設定判別ツールNEOの独自計算値を登録しています。
-            コイン持ちはチェリー取得・ベル／ピエロこぼし条件付きの参考値で、選択した取得条件に合わせて補正します。
+            公表機械割とチェリー狙い参考値は別データです。通常はどちらかを選択してください。
+            「概算補間」は両者の中間を直線で求める表示上の参考値で、実測された機械割ではありません。
+            コイン持ちは掲載元の条件を基本とし、取得率を指定した場合のみ概算補正します。
             ブドウ、チェリー、単独・重複確率には解析・推定値が含まれます。
           </p>
         </div>
@@ -805,7 +838,7 @@
           </article>
           <article>
             <span>4</span>
-            <div><h3>小役</h3><p>実測小役または差枚逆算ブドウを追加します。取りこぼし補正と証拠強度を掛け、未入力項目は除外します。</p></div>
+            <div><h3>小役</h3><p>実測小役は入力した小役と「その他」を1つの多項分布として追加します。差枚逆算ブドウは単独の二項分布で扱い、未入力項目は除外します。</p></div>
           </article>
           <article>
             <span>5</span>
@@ -819,7 +852,7 @@
 = log prior(s)
 + log L(BB, RB, 非当選 | s)
 + log L(単独/重複内訳 | ボーナス, s)
-+ 小役証拠強度 × Σ log L(入力小役 | s)</pre>
++ 小役証拠強度 × log L(入力小役群・その他 | s)</pre>
           <p>
             <code>s</code>は設定1〜6です。最後にsoftmaxで正規化します。
             機械割は現在、期待差枚と資料表示に使用し、設定確率へ直接は加えていません。
@@ -852,6 +885,6 @@
     <button id="mobileAnalyzeButton" class="button primary" type="button">設定を推測する</button>
   </div>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>

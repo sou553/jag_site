@@ -174,6 +174,44 @@ const COIN_HOLD_REFERENCE = {
   }
 };
 
+
+const DATA_REVIEWED_AT = '2026-07-26';
+
+const DATA_SOURCE_META = {
+  official: {
+    type: '公式',
+    title: '北電子 パチスロ製品情報',
+    url: 'https://www.kitadenshi.co.jp/slot/',
+    updatedAt: '機種別製品ページ',
+    verifiedAt: DATA_REVIEWED_AT,
+    description: 'BB・RB・合算・公表機械割・獲得枚数'
+  },
+  payout: {
+    type: '独自計算',
+    title: 'ジャグラー設定判別ツールNEO 機械割一覧',
+    url: 'https://jugcheckneo.link/payout-rates/',
+    updatedAt: '更新日記載なし',
+    verifiedAt: DATA_REVIEWED_AT,
+    description: 'チェリー狙い参考機械割'
+  },
+  coin: {
+    type: '解析',
+    title: 'ジャグラーズネット コイン持ち一覧',
+    url: 'https://jugglersnet.com/analysis/coinmochi',
+    updatedAt: '2026-05-21',
+    verifiedAt: DATA_REVIEWED_AT,
+    description: '設定別50枚コイン持ち・取得条件'
+  },
+  roles: {
+    type: '解析・推定',
+    title: 'くずぱち日記 ジャグラーシリーズ設定差一覧',
+    url: 'https://kuzupati.com/entry/2024/12/26/091238',
+    updatedAt: '2024-12-26',
+    verifiedAt: DATA_REVIEWED_AT,
+    description: 'ブドウ・チェリー・単独／重複確率'
+  }
+};
+
 const PRIOR_PRESETS = {
   uniform: [16.67, 16.67, 16.67, 16.67, 16.66, 16.66],
   hall: [45, 25, 15, 8, 5, 2],
@@ -181,7 +219,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v13';
+const STORAGE_KEY = 'juggler-setting-analyzer-v14';
 const THEME_STORAGE_KEY = 'juggler-theme';
 const DARK_THEME_COLOR = '#0a1020';
 const LIGHT_THEME_COLOR = '#10172a';
@@ -764,6 +802,12 @@ function validate(data) {
         issues.push(`${label}回数が小役計測G数を超えています。`);
       }
     });
+    const totalSmallRoleCounts = Object.entries(data.roleCounts)
+      .filter(([key, count]) => count !== null && MACHINES[data.machineKey].roles[key]?.type === 'small')
+      .reduce((sum, [, count]) => sum + count, 0);
+    if (totalSmallRoleCounts > data.manualGames) {
+      issues.push('入力した小役回数の合計が小役計測G数を超えています。');
+    }
   }
   return issues;
 }
@@ -820,6 +864,29 @@ function binomialLogLikelihood(n, x, probability) {
   return x * Math.log(p) + (n - x) * Math.log(1 - p);
 }
 
+function multinomialLogLikelihood(totalGames, categories) {
+  const totalObserved = categories.reduce((sum, category) => sum + category.count, 0);
+  const otherCount = totalGames - totalObserved;
+  if (otherCount < 0) return -Infinity;
+
+  let probabilitySum = 0;
+  let logLikelihood = 0;
+
+  categories.forEach((category) => {
+    const probability = Math.min(1 - 1e-12, Math.max(1e-12, category.probability));
+    probabilitySum += probability;
+    logLikelihood += category.count * Math.log(probability);
+  });
+
+  const otherProbability = Math.min(
+    1 - 1e-12,
+    Math.max(1e-12, 1 - probabilitySum)
+  );
+  logLikelihood += otherCount * Math.log(otherProbability);
+  return logLikelihood;
+}
+
+
 function closestSettingForRole(roleData, actualDenom) {
   if (!Number.isFinite(actualDenom)) return '—';
   let best = 0;
@@ -855,6 +922,7 @@ function calculate(data) {
   const roleLogLikelihoods = Array(6).fill(0);
   const usedEvidence = [];
   let grape = { valid: false, message: '小役を使用していません。' };
+  let roleModel = { method: 'none', categoryCount: 0, observedCount: 0, otherCount: data.games };
 
   if (data.roleMode === 'reverse') {
     grape = estimateGrape(data, machine);
@@ -864,6 +932,12 @@ function calculate(data) {
         roleLogLikelihoods[index] += data.reverseRoleWeight
           * binomialLogLikelihood(data.games, grape.grapeCount, 1 / denom);
       });
+      roleModel = {
+        method: 'binomial',
+        categoryCount: 1,
+        observedCount: grape.grapeCount,
+        otherCount: data.games - grape.grapeCount
+      };
       usedEvidence.push({
         key: 'grape',
         label: 'ブドウ（差枚逆算）',
@@ -877,29 +951,56 @@ function calculate(data) {
     }
   } else {
     const weight = data.manualRoleWeight;
-    Object.entries(data.roleCounts).forEach(([key, count]) => {
-      if (count === null || weight <= 0) return;
-      const roleData = machine.roles[key];
-      if (!roleData) return;
-      const capture = roleData.captureSensitive ? data.smallRoleCapture : 1;
-      roleData.denoms.forEach((denom, index) => {
-        const pObserved = (1 / denom) * capture;
-        roleLogLikelihoods[index] += weight
-          * binomialLogLikelihood(data.manualGames, count, pObserved);
-      });
-      const correctedCount = roleData.captureSensitive && capture > 0 ? count / capture : count;
-      const actualDenom = correctedCount > 0 ? data.manualGames / correctedCount : Infinity;
-      usedEvidence.push({
+    const enteredRoles = Object.entries(data.roleCounts)
+      .filter(([key, count]) => {
+        const roleData = machine.roles[key];
+        return count !== null && roleData && roleData.type === 'small';
+      })
+      .map(([key, count]) => ({
         key,
-        label: roleData.label,
         count,
-        games: data.manualGames,
-        denominator: actualDenom,
-        capture: roleData.captureSensitive ? capture : null,
-        weight,
-        closest: closestSettingForRole(roleData, actualDenom)
+        roleData: machine.roles[key],
+        capture: machine.roles[key].captureSensitive ? data.smallRoleCapture : 1
+      }));
+
+    if (enteredRoles.length && weight > 0) {
+      machine.specs.forEach((_, settingIndex) => {
+        const categories = enteredRoles.map((entry) => ({
+          count: entry.count,
+          probability: (1 / entry.roleData.denoms[settingIndex]) * entry.capture
+        }));
+        roleLogLikelihoods[settingIndex] += weight
+          * multinomialLogLikelihood(data.manualGames, categories);
       });
-    });
+
+      enteredRoles.forEach((entry) => {
+        const correctedCount =
+          entry.roleData.captureSensitive && entry.capture > 0
+            ? entry.count / entry.capture
+            : entry.count;
+        const actualDenom =
+          correctedCount > 0 ? data.manualGames / correctedCount : Infinity;
+
+        usedEvidence.push({
+          key: entry.key,
+          label: entry.roleData.label,
+          count: entry.count,
+          games: data.manualGames,
+          denominator: actualDenom,
+          capture: entry.roleData.captureSensitive ? entry.capture : null,
+          weight,
+          closest: closestSettingForRole(entry.roleData, actualDenom)
+        });
+      });
+
+      const totalObserved = enteredRoles.reduce((sum, entry) => sum + entry.count, 0);
+      roleModel = {
+        method: 'multinomial',
+        categoryCount: enteredRoles.length,
+        observedCount: totalObserved,
+        otherCount: data.manualGames - totalObserved
+      };
+    }
   }
 
   const posterior = normalizeLogScores(
@@ -920,6 +1021,7 @@ function calculate(data) {
     bonusBreakdownEvidence: bonusBreakdownResult.evidence,
     bonusBreakdownLogLikelihoods: bonusBreakdownResult.logLikelihoods,
     roleLogLikelihoods,
+    roleModel,
     usedEvidence,
     grape,
     expectedDiffs
@@ -1031,9 +1133,23 @@ function getDecisionStrength(data, posterior) {
     .sort((a, b) => b.probability - a.probability);
   const gap = ranked[0].probability - ranked[1].probability;
 
-  if (data.games >= 5000 && gap >= 0.15) return { label: '強い', className: 'strong', gap };
-  if (data.games >= 3000 && gap >= 0.07) return { label: '中', className: 'medium', gap };
-  return { label: '弱い', className: 'low', gap };
+  let label = '弱い';
+  let className = 'low';
+  if (data.games >= 5000 && gap >= 0.15 && ranked[0].probability >= 0.40) {
+    label = '強い';
+    className = 'strong';
+  } else if (data.games >= 3000 && gap >= 0.07 && ranked[0].probability >= 0.28) {
+    label = '中';
+    className = 'medium';
+  }
+
+  return {
+    label,
+    className,
+    gap,
+    first: ranked[0],
+    second: ranked[1]
+  };
 }
 
 function createEvidenceItem({ label, title, detail, status, tone = '', unused = false }) {
@@ -1056,6 +1172,9 @@ function renderDecisionEvidence(data, result, closestSettings) {
 
   $('evidenceStrengthBadge').textContent = `判別強度 ${strength.label}`;
   $('evidenceStrengthBadge').className = `status-pill evidence-strength-${strength.className}`;
+  $('evidenceTopPair').textContent =
+    `設定${strength.first.index + 1} ${formatPercent(strength.first.probability)} ／ `
+    + `設定${strength.second.index + 1} ${formatPercent(strength.second.probability)}`;
   $('evidenceTopGap').textContent = `${(strength.gap * 100).toFixed(1)}pt`;
   $('evidenceLowProbability').textContent = formatPercent(lowProbability);
   $('evidenceHighProbability').textContent = formatPercent(highProbability);
@@ -1149,7 +1268,7 @@ function renderDecisionEvidence(data, result, closestSettings) {
         title: Number.isFinite(evidence.denominator)
           ? `1/${evidence.denominator.toFixed(3)} → ${evidence.closest}`
           : `0回 → ${evidence.closest}`,
-        detail: `計測${evidence.games}G・証拠強度${Math.round(evidence.weight * 100)}%`,
+        detail: `計測${evidence.games}G・多項分布・証拠強度${Math.round(evidence.weight * 100)}%`,
         status: '使用',
         tone: 'role'
       }));
@@ -1267,7 +1386,7 @@ function renderResult(data, result) {
     ? data.hasDiff
       ? `逆算ブドウ ${Math.round(data.reverseRoleWeight * 100)}%`
       : '差枚未入力・小役なし'
-    : roleUsed ? `実測小役 ${Math.round(data.manualRoleWeight * 100)}%` : '小役なし';
+    : roleUsed ? `実測小役・多項分布 ${Math.round(data.manualRoleWeight * 100)}%` : '小役なし';
   const breakdownLabel = result.bonusBreakdownEvidence.length ? ' ＋ 単独/重複内訳' : '';
   $('analysisModeLabel').textContent =
     `BB/RB 100%${breakdownLabel} ＋ ${roleLabel}${data.priorEnabled ? ' ＋ 設定配分' : ''}`;
@@ -1301,7 +1420,7 @@ function renderResult(data, result) {
     $('smallRoleCaution').textContent = result.grape.message;
   } else {
     $('smallRoleCaution').textContent = roleUsed
-      ? '空欄項目は除外しました。ブドウ・チェリーは入力した捕捉率で補正しています。'
+      ? `入力した${result.roleModel.categoryCount}項目とその他${Math.max(0, Math.round(result.roleModel.otherCount)).toLocaleString('ja-JP')}Gを多項分布でまとめて評価しました。空欄項目は除外し、捕捉率も反映しています。`
       : '小役入力が空欄のため、BB・RBだけで推測しました。';
   }
 
@@ -1480,20 +1599,27 @@ function getCherryTargetPayoutRate(machineKey, settingIndex, officialRate) {
   return rates[settingIndex];
 }
 
-function getAdjustedPayoutRate(machineKey, machine, settingIndex, captureRate) {
+function getSelectedPayoutRate(machineKey, machine, settingIndex, mode, interpolationRate) {
   const officialRate = machine.specs[settingIndex][3];
   const cherryTargetRate =
     getCherryTargetPayoutRate(machineKey, settingIndex, officialRate);
 
-  return officialRate
-    + captureRate * (cherryTargetRate - officialRate);
+  if (mode === 'cherry') return cherryTargetRate;
+  if (mode === 'interpolate') {
+    return officialRate
+      + interpolationRate * (cherryTargetRate - officialRate);
+  }
+  return officialRate;
 }
 
-function getAdjustedCoinHold(machineKey, machine, settingIndex, captureRate) {
+function getAdjustedCoinHold(machineKey, machine, settingIndex, coinMode) {
   const reference = COIN_HOLD_REFERENCE[machineKey];
   if (!reference || !Number.isFinite(reference.values[settingIndex])) return null;
 
   const referenceCoinHold = reference.values[settingIndex];
+  if (coinMode === 'reference') return referenceCoinHold;
+
+  const captureRate = clampNumber(coinMode, 0, 1);
   const referenceNetConsumption = 50 / referenceCoinHold;
   const cherryProbability =
     getCherryProbabilityForSetting(machine, settingIndex);
@@ -1587,39 +1713,95 @@ function renderAllMachineComparison() {
   });
 }
 
+function renderReferenceSources(machineKey) {
+  const sourceList = $('referenceSourceList');
+  const machine = MACHINES[machineKey];
+  const entries = [
+    DATA_SOURCE_META.official,
+    DATA_SOURCE_META.payout,
+    DATA_SOURCE_META.coin,
+    DATA_SOURCE_META.roles
+  ];
+
+  sourceList.innerHTML = '';
+  entries.forEach((source) => {
+    const card = document.createElement('article');
+    card.className = 'reference-source-card';
+    card.innerHTML = `
+      <div class="reference-source-card-head">
+        <span class="source-type source-type-${source.type.replace(/[^一-龥ぁ-んァ-ヶA-Za-z0-9]/g, '-')}">${source.type}</span>
+        <span class="source-date">更新 ${source.updatedAt}</span>
+      </div>
+      <a href="${source.url}" target="_blank" rel="noopener noreferrer">${source.title}</a>
+      <p>${source.description}</p>
+      <small>確認日 ${source.verifiedAt}</small>`;
+    sourceList.appendChild(card);
+  });
+
+  if (machineKey === 'neo_im') {
+    const assumption = document.createElement('article');
+    assumption.className = 'reference-source-card source-assumption-card';
+    assumption.innerHTML = `
+      <div class="reference-source-card-head">
+        <span class="source-type source-type-assumption">仮定</span>
+        <span class="source-date">確認 ${DATA_REVIEWED_AT}</span>
+      </div>
+      <strong>アイムジャグラーEX相当値</strong>
+      <p>${machine.note}</p>
+      <small>機種固有解析値が揃うまでの暫定扱い</small>`;
+    sourceList.appendChild(assumption);
+  }
+
+  $('referenceReviewedAt').textContent = `データ確認 ${DATA_REVIEWED_AT}`;
+}
+
+function updateReferenceConditionUI() {
+  const mode = $('referencePayoutMode').value;
+  const interpolation = mode === 'interpolate';
+  $('referenceInterpolationPanel').classList.toggle('hidden', !interpolation);
+  $('referenceInterpolationValue').textContent = `${$('referenceInterpolationRate').value}%`;
+}
+
 function renderMachineReference() {
   const machineKey = referenceMachineSelect.value || machineSelect.value;
   const machine = MACHINES[machineKey];
   if (!machine) return;
 
-  const captureRate =
-    clampNumber($('referenceCherryCapture').value, 0, 1);
+  const payoutMode = $('referencePayoutMode').value;
+  const interpolationRate =
+    clampNumber($('referenceInterpolationRate').value, 0, 100) / 100;
+  const coinMode = $('referenceCoinMode').value;
   const coinReference = COIN_HOLD_REFERENCE[machineKey];
+
+  updateReferenceConditionUI();
+  renderReferenceSources(machineKey);
 
   $('referenceIntroduced').textContent = machine.introduced;
   $('referenceBigCoins').textContent = `${machine.bonusCoins[0]}枚`;
   $('referenceRegCoins').textContent = `${machine.bonusCoins[1]}枚`;
 
-  const machineMessages = [];
-  if (machine.note) machineMessages.push(machine.note);
-  if (coinReference) {
-    machineMessages.push(`コイン持ち基準：${coinReference.note}`);
-  }
-  machineMessages.push(
-    captureRate === 0
-      ? '機械割はメーカー公表値（適当打ち基準）を表示しています。'
-      : captureRate === 1
-        ? '機械割はチェリー狙い参考値を表示しています。'
-        : `機械割は公表値からチェリー狙い参考値へ${Math.round(captureRate * 100)}%補間しています。`
-  );
-  $('referenceMachineNote').textContent = machineMessages.join('｜');
+  const payoutMessage =
+    payoutMode === 'official'
+      ? '機械割はメーカー公表値（適当打ち基準）を選択中です。'
+      : payoutMode === 'cherry'
+        ? '機械割はチェリー狙い参考値（NEO独自計算値）を選択中です。'
+        : `機械割は公表値からチェリー狙い参考値へ${Math.round(interpolationRate * 100)}%の概算補間です。`;
+
+  const coinMessage = coinReference
+    ? coinMode === 'reference'
+      ? `コイン持ち：掲載元条件（${coinReference.note}）`
+      : `コイン持ち：チェリー取得${Math.round(Number(coinMode) * 100)}%として概算`
+    : 'コイン持ち：未登録';
+
+  $('referenceMachineNote').textContent =
+    [machine.note, payoutMessage, coinMessage].filter(Boolean).join('｜');
 
   $('referenceCaptureBadge').textContent =
-    captureRate === 0
+    payoutMode === 'official'
       ? '公表値'
-      : captureRate === 1
-        ? 'チェリー狙い'
-        : `反映${Math.round(captureRate * 100)}%`;
+      : payoutMode === 'cherry'
+        ? 'チェリー狙い参考'
+        : `概算${Math.round(interpolationRate * 100)}%`;
 
   const body = $('referenceSpecBody');
   body.innerHTML = '';
@@ -1628,14 +1810,20 @@ function renderMachineReference() {
     const officialRate = spec[3];
     const cherryTargetRate =
       getCherryTargetPayoutRate(machineKey, settingIndex, officialRate);
-    const adjustedRate =
-      getAdjustedPayoutRate(machineKey, machine, settingIndex, captureRate);
+    const selectedRate =
+      getSelectedPayoutRate(
+        machineKey,
+        machine,
+        settingIndex,
+        payoutMode,
+        interpolationRate
+      );
     const expectedDiff1000 =
-      3 * 1000 * (adjustedRate / 100 - 1);
+      3 * 1000 * (selectedRate / 100 - 1);
     const cherryProbability =
       getCherryProbabilityForSetting(machine, settingIndex);
     const coinHold =
-      getAdjustedCoinHold(machineKey, machine, settingIndex, captureRate);
+      getAdjustedCoinHold(machineKey, machine, settingIndex, coinMode);
 
     const row = document.createElement('tr');
     const diffClass =
@@ -1648,7 +1836,7 @@ function renderMachineReference() {
       <td>1/${spec[2]}</td>
       <td>${officialRate.toFixed(1)}%</td>
       <td class="cherry-target-rate">${cherryTargetRate.toFixed(2)}%</td>
-      <td class="adjusted-rate">${adjustedRate.toFixed(2)}%</td>
+      <td class="adjusted-rate">${selectedRate.toFixed(2)}%</td>
       <td class="${diffClass}">${formatSigned(expectedDiff1000)}</td>
       <td class="coin-hold-value">${coinHold ? `${coinHold.toFixed(2)}G` : '—'}</td>
       <td>${formatReferenceDenominator(cherryProbability)}</td>`;
@@ -2439,7 +2627,9 @@ function bindEvents() {
     saveState();
   });
 
-  $('referenceCherryCapture').addEventListener('change', renderMachineReference);
+  $('referencePayoutMode').addEventListener('change', renderMachineReference);
+  $('referenceCoinMode').addEventListener('change', renderMachineReference);
+  $('referenceInterpolationRate').addEventListener('input', renderMachineReference);
 
   ['totalGames','simpleBBCount','simpleRBCount','singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
     .forEach((id) => {
