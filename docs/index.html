@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light dark">
-  <title>6号機ジャグラー 設定推測ツール v14</title>
+  <meta name="application-version" content="15.0.0">
+  <meta name="application-schema-version" content="15">
+  <meta name="application-data-version" content="2026.07.26-r2">
+  <meta name="application-build-id" content="20260726-131142-v15">
+  <title>6号機ジャグラー 設定推測ツール v15.0.0</title>
   <meta name="description" content="総回転数・BB・RB・任意の差枚・実測小役から6号機ジャグラーの設定別相対確率を計算し、ボーナス履歴を台データへ自動同期するWebツールです。">
   <link rel="icon" type="image/png" href="./img/mini.jpg">
   <script>
@@ -17,14 +21,17 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=14">
+  <link rel="stylesheet" href="style.css?v=15.0.0">
 </head>
 <body>
   <header class="site-header">
     <div class="header-inner">
-      <div>
+      <div class="header-title-block">
         <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
-        <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
+        <div class="header-title-row">
+          <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
+          <button id="versionInfoButton" class="release-version-badge" type="button" aria-label="バージョン情報を開く">v15.0.0</button>
+        </div>
         <p class="lead">BB・RB・任意の差枚・実測小役を総合判定<br><small>ボーナス履歴は区間分析と台データ自動同期に対応</small></p>
       </div>
       <div class="header-actions">
@@ -32,8 +39,18 @@
           <span id="themeToggleIcon" class="theme-toggle-icon" aria-hidden="true">☾</span>
           <span id="themeToggleText">ダーク</span>
         </button>
-        <button id="loadSample" class="button header-button" type="button">入力例</button>
-        <button id="resetAll" class="button header-button danger-outline" type="button">全消去</button>
+        <div class="desktop-header-actions">
+          <button id="loadSample" class="button header-button" type="button">入力例</button>
+          <button id="resetAll" class="button header-button danger-outline" type="button">全消去</button>
+        </div>
+        <details id="mobileHeaderMenu" class="mobile-header-menu">
+          <summary aria-label="その他の操作">⋯</summary>
+          <div class="mobile-header-menu-popover">
+            <button id="mobileLoadSampleHeader" class="button header-menu-button" type="button">入力例</button>
+            <button id="mobileResetAllHeader" class="button header-menu-button danger-text" type="button">全消去</button>
+            <button id="mobileVersionInfoHeader" class="button header-menu-button" type="button">バージョン情報</button>
+          </div>
+        </details>
       </div>
     </div>
   </header>
@@ -105,6 +122,10 @@
                 <small>単独・チェリー重複を分ける</small>
               </button>
             </div>
+            <div id="bonusCapabilityNote" class="bonus-capability-note">
+              <span id="bonusCapabilityBadge" class="status-pill">確認中</span>
+              <p id="bonusCapabilityText">選択機種の詳細入力対応状況を確認しています。</p>
+            </div>
 
             <div id="simpleBonusPanel" class="simple-bonus-panel">
               <label class="quick-field bb-field">
@@ -145,6 +166,10 @@
                     <span>チェリー重複BIG</span>
                     <input id="cherryBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                   </label>
+                  <label id="rareCherryBBField" class="bonus-component-field rare-cherry-component hidden">
+                    <span>レアチェリー重複BIG</span>
+                    <input id="rareCherryBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                  </label>
                   <label class="bonus-component-field unknown-component">
                     <span>内訳不明BIG</span>
                     <input id="unknownBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
@@ -178,7 +203,7 @@
                   </label>
                 </div>
               </section>
-              <p class="mini-note detailed-input-note">内訳不明分もBB・RB合計には含まれます。単独／重複の追加判定には、内訳が分かる回数だけを使います。</p>
+              <p class="mini-note detailed-input-note">内訳不明分もBB・RB合計には含まれます。対応機種では通常チェリー重複とレアチェリー重複を分けて条件付き尤度へ追加します。</p>
             </div>
           </section>
 
@@ -405,22 +430,16 @@
             <button type="button" class="key-sub" data-key="back">⌫</button>
           </div>
 
+          <p id="historyBonusCapabilityNote" class="field-note history-capability-note"></p>
           <div class="history-bonus-action-grid">
-            <button id="addSingleBB" class="bonus-button bb single-bonus" type="button">
-              <strong>単独BIG</strong><span>履歴に追加</span>
-            </button>
-            <button id="addCherryBB" class="bonus-button bb cherry-bonus" type="button">
-              <strong>重複BIG</strong><span>チェリー重複</span>
-            </button>
-            <button id="addSingleRB" class="bonus-button rb single-bonus" type="button">
-              <strong>単独REG</strong><span>履歴に追加</span>
-            </button>
-            <button id="addCherryRB" class="bonus-button rb cherry-bonus" type="button">
-              <strong>重複REG</strong><span>チェリー重複</span>
-            </button>
-            <button id="setCurrent" class="bonus-button current history-current-button" type="button">
-              <strong>現在</strong><span>最終ボーナス後G数</span>
-            </button>
+            <button id="addUnknownBB" class="bonus-button bb unknown-bonus" type="button"><strong>BIG</strong><span>内訳不明</span></button>
+            <button id="addUnknownRB" class="bonus-button rb unknown-bonus" type="button"><strong>REG</strong><span>内訳不明</span></button>
+            <button id="addSingleBB" class="bonus-button bb single-bonus detailed-history-button" type="button"><strong>単独BIG</strong><span>履歴に追加</span></button>
+            <button id="addCherryBB" class="bonus-button bb cherry-bonus detailed-history-button" type="button"><strong>重複BIG</strong><span>通常チェリー</span></button>
+            <button id="addRareCherryBB" class="bonus-button bb rare-cherry-bonus hidden" type="button"><strong>レア重複BIG</strong><span>レアチェリー</span></button>
+            <button id="addSingleRB" class="bonus-button rb single-bonus detailed-history-button" type="button"><strong>単独REG</strong><span>履歴に追加</span></button>
+            <button id="addCherryRB" class="bonus-button rb cherry-bonus detailed-history-button" type="button"><strong>重複REG</strong><span>チェリー重複</span></button>
+            <button id="setCurrent" class="bonus-button current history-current-button" type="button"><strong>現在</strong><span>最終ボーナス後G数</span></button>
           </div>
 
           <div class="history-action-row history-action-row-auto">
@@ -460,7 +479,7 @@
             <p class="section-kicker">ANALYSIS</p>
             <h2>推測結果</h2>
           </div>
-          <span id="confidenceBadge" class="badge neutral">未計算</span>
+          <span id="confidenceBadge" class="badge neutral">データ量 —</span>
         </div>
 
         <div id="emptyResult" class="empty-state">
@@ -524,14 +543,15 @@
             <div class="subpanel-title">
               <div>
                 <h3>判定根拠</h3>
-                <p class="field-note">各項目単体の近似先と、最終判定に使用した情報を表示します。</p>
+                <p class="field-note">データ量と結果分離度を分け、設定配分補正前後の情報を表示します。</p>
               </div>
-              <span id="evidenceStrengthBadge" class="status-pill">判別強度 —</span>
+              <span id="evidenceStrengthBadge" class="status-pill">結果分離度 —</span>
             </div>
 
             <div class="evidence-summary-grid">
-              <article class="evidence-top-pair"><span>1位／2位</span><strong id="evidenceTopPair">—</strong></article>
-              <article><span>1位と2位の差</span><strong id="evidenceTopGap">—</strong></article>
+              <article class="evidence-top-pair"><span>最終1位／2位</span><strong id="evidenceTopPair">—</strong></article>
+              <article><span>最終1位・2位差</span><strong id="evidenceTopGap">—</strong></article>
+              <article><span>証拠のみの差</span><strong id="evidenceRawGap">—</strong></article>
               <article><span>設定1〜3</span><strong id="evidenceLowProbability">—</strong></article>
               <article><span>設定4〜6</span><strong id="evidenceHighProbability">—</strong></article>
               <article><span>入力方式</span><strong id="evidenceInputMode">—</strong></article>
@@ -782,8 +802,9 @@
           <div class="subpanel-title">
             <div>
               <h3>全機種の設定1・設定6比較</h3>
-              <p class="field-note">収録機種の低設定側と高設定側を一覧で比較します。</p>
+              <p class="field-note">個別表で選択した機械割表示条件を全機種へ反映します。</p>
             </div>
+            <span id="allMachineModeBadge" class="status-pill">公表値</span>
           </div>
           <div class="table-wrap reference-table-wrap">
             <table class="all-machine-table">
@@ -792,8 +813,8 @@
                   <th>機種</th>
                   <th>設定1合算</th>
                   <th>設定6合算</th>
-                  <th>設定1機械割</th>
-                  <th>設定6機械割</th>
+                  <th id="allMachineSetting1RateHead">設定1公表機械割</th>
+                  <th id="allMachineSetting6RateHead">設定6公表機械割</th>
                   <th>設定1ブドウ</th>
                   <th>設定6ブドウ</th>
                 </tr>
@@ -834,7 +855,7 @@
           </article>
           <article>
             <span>3</span>
-            <div><h3>単独・チェリー重複</h3><p>内訳が判明しているボーナスだけを使い、ボーナス当選時に単独だった割合を条件付き尤度として追加します。</p></div>
+            <div><h3>単独・チェリー重複</h3><p>内訳が判明しているボーナスだけを使い、単独・通常チェリー重複・レアチェリー重複を条件付き多項分布として追加します。</p></div>
           </article>
           <article>
             <span>4</span>
@@ -876,7 +897,26 @@
             機械割を推測へ追加する場合は、差枚の実測分散を機種別・回転数別に推定した専用モードが必要です。
           </p>
         </section>
-        <p class="source-note">外部通信なし。入力内容はブラウザ内に保存されます。静的ファイルだけで動作するためGitHub Pagesに配置できます。</p>
+                <section id="buildInfoPanel" class="formula-panel build-info-panel">
+          <div class="build-info-heading">
+            <div><h3>公開バージョン情報</h3><p>HTML・JavaScript・version.jsonの情報を比較し、公開側の更新状態を確認します。</p></div>
+            <span id="versionStatusBadge" class="status-pill">確認中</span>
+          </div>
+          <div class="build-info-grid">
+            <article><span>アプリ</span><strong id="buildAppVersion">v15.0.0</strong></article>
+            <article><span>リリース</span><strong id="buildChannel">stable</strong></article>
+            <article><span>保存形式</span><strong id="buildSchemaVersion">schema 15</strong></article>
+            <article><span>データ</span><strong id="buildDataVersion">2026.07.26-r2</strong></article>
+            <article><span>ビルドID</span><strong id="buildId">20260726-131142-v15</strong></article>
+            <article><span>ビルド日時</span><strong id="buildTime">2026-07-26T13:11:42Z</strong></article>
+          </div>
+          <div id="versionVerificationMessage" class="version-verification-message">version.jsonを確認しています。</div>
+          <div class="build-action-row">
+            <button id="verifyVersionButton" class="button secondary" type="button">公開版を再確認</button>
+            <code>./version.json</code>
+          </div>
+        </section>
+        <p class="source-note">入力内容を外部サービスへ送信しません。公開版確認時だけ、同一サイト内のversion.jsonを取得します。</p>
       </section>
     </section>
   </main>
@@ -885,6 +925,13 @@
     <button id="mobileAnalyzeButton" class="button primary" type="button">設定を推測する</button>
   </div>
 
-  <script src="app.js?v=14"></script>
+  <footer class="site-footer">
+    <button id="footerVersionButton" type="button">v15.0.0</button>
+    <span>schema 15</span>
+    <span>data 2026.07.26-r2</span>
+    <span id="footerBuildStatus">公開確認中</span>
+  </footer>
+
+  <script src="app.js?v=15.0.0"></script>
 </body>
 </html>
