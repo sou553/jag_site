@@ -1949,3 +1949,301 @@ input[type="number"]::-webkit-outer-spin-button {
     font-size: 17px;
   }
 }
+
+
+/* v12: mobile analyze button persistence and dark mode */
+:root { --keyboard-offset: 0px; }
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.theme-toggle-icon { font-size: 17px; line-height: 1; }
+
+@media (max-width: 640px) {
+  body,
+  body.keyboard-open {
+    padding-bottom: calc(76px + var(--keyboard-offset) + env(safe-area-inset-bottom));
+  }
+
+  .mobile-bottom-bar,
+  body.keyboard-open .mobile-bottom-bar {
+    display: block;
+    bottom: var(--keyboard-offset);
+    transition: bottom .16s ease;
+  }
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+  --navy: #0a1020;
+  --red: #ff4055;
+  --red-dark: #e52d43;
+  --blue: #60a5fa;
+  --gold: #f3c75f;
+  --green: #46c995;
+  --ink: #f2f5fa;
+  --muted: #aeb8c8;
+  --line: #344054;
+  --panel: #151c2b;
+  --panel-alt: #1b2435;
+  --soft-red: #341a22;
+  --soft-blue: #172a45;
+  --soft-gold: #382f17;
+  --soft-green: #153428;
+  --surface: #151c2b;
+  --surface-soft: #1a2333;
+  --surface-blue: #172a45;
+  --surface-red: #341a22;
+  --surface-green: #153428;
+  --border-strong: #43516a;
+  --text-soft: #b8c2d2;
+}
+
+html[data-theme="dark"] body {
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(96,165,250,.10), transparent 34rem),
+    #0d1320;
+}
+html[data-theme="dark"] .site-header {
+  background: linear-gradient(135deg, #080d19, #111a2e);
+}
+html[data-theme="dark"] .tab-nav,
+html[data-theme="dark"] .tab-button {
+  background: #111827;
+  border-color: #2f3a4d;
+  color: #aeb8c8;
+}
+html[data-theme="dark"] .tab-button.active {
+  color: #ff6677;
+  border-bottom-color: var(--red);
+  background: #20151c;
+}
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .subpanel,
+html[data-theme="dark"] .formula-panel,
+html[data-theme="dark"] .mode-surface {
+  color: var(--ink);
+  border-color: #334055;
+  background: #151c2b;
+  box-shadow: 0 10px 30px rgba(0,0,0,.24);
+}
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] .bonus-kind-label,
+html[data-theme="dark"] .role-input-label strong,
+html[data-theme="dark"] .reference-summary-card strong,
+html[data-theme="dark"] .role-live-rate {
+  color: #f4f7fb;
+}
+html[data-theme="dark"] .lead,
+html[data-theme="dark"] .panel-description,
+html[data-theme="dark"] .field-note,
+html[data-theme="dark"] .mini-note,
+html[data-theme="dark"] .source-note,
+html[data-theme="dark"] .setting-tile small,
+html[data-theme="dark"] .role-input-label small,
+html[data-theme="dark"] .reference-note,
+html[data-theme="dark"] .method-flow p,
+html[data-theme="dark"] .formula-panel p {
+  color: #aeb8c8;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] .diff-value-box {
+  color: #f5f7fb;
+  border-color: #43516a;
+  background: #0f1726;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder,
+html[data-theme="dark"] #diffCoins::placeholder {
+  color: #748198;
+}
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] select:focus,
+html[data-theme="dark"] textarea:focus,
+html[data-theme="dark"] .diff-value-box:focus-within {
+  border-color: #60a5fa;
+  box-shadow: 0 0 0 3px rgba(96,165,250,.18);
+}
+html[data-theme="dark"] .quick-field,
+html[data-theme="dark"] .metric,
+html[data-theme="dark"] .reference-summary-card,
+html[data-theme="dark"] .setting-tile,
+html[data-theme="dark"] .role-input-card,
+html[data-theme="dark"] .fixed-value-card,
+html[data-theme="dark"] .grape-breakdown div,
+html[data-theme="dark"] .history-entry-display,
+html[data-theme="dark"] .role-rate-box,
+html[data-theme="dark"] .bonus-component-field,
+html[data-theme="dark"] .prior-use-switch {
+  color: var(--ink);
+  border-color: #39465b;
+  background: #1a2333;
+}
+html[data-theme="dark"] .quick-field.bb-field,
+html[data-theme="dark"] .bb-breakdown-card {
+  border-color: #703441;
+  background: linear-gradient(145deg, #2c1820, #181f2e);
+}
+html[data-theme="dark"] .quick-field.rb-field,
+html[data-theme="dark"] .rb-breakdown-card {
+  border-color: #31527c;
+  background: linear-gradient(145deg, #14263e, #181f2e);
+}
+html[data-theme="dark"] .unknown-component,
+html[data-theme="dark"] .bonus-component-field {
+  background: #121a29;
+}
+html[data-theme="dark"] .live-rates { border-color: #39465b; }
+html[data-theme="dark"] .live-rates div { background: #121a29; }
+html[data-theme="dark"] .live-rates div + div { border-left-color: #39465b; }
+html[data-theme="dark"] .option-block,
+html[data-theme="dark"] .nested-option,
+html[data-theme="dark"] .table-wrap,
+html[data-theme="dark"] .history-list,
+html[data-theme="dark"] .chart-card {
+  border-color: #39465b;
+  background: #131b29;
+}
+html[data-theme="dark"] .option-block > summary,
+html[data-theme="dark"] .nested-option > summary,
+html[data-theme="dark"] .nested-option[open] > summary,
+html[data-theme="dark"] th {
+  color: #dbe3ef;
+  border-color: #39465b;
+  background: #1c2637;
+}
+html[data-theme="dark"] td,
+html[data-theme="dark"] th,
+html[data-theme="dark"] .history-list li {
+  border-color: #344054;
+}
+html[data-theme="dark"] .calculation-policy,
+html[data-theme="dark"] .info-banner {
+  border-color: #31527c;
+  background: #172a45;
+}
+html[data-theme="dark"] .calculation-policy strong,
+html[data-theme="dark"] .info-banner p { color: #b9d8ff; }
+html[data-theme="dark"] .manual-role-help {
+  border-color: #285f4b;
+  background: #153428;
+}
+html[data-theme="dark"] .manual-role-help strong,
+html[data-theme="dark"] .manual-role-help p { color: #bcebd7; }
+html[data-theme="dark"] .role-method-button {
+  color: #e8edf5;
+  border-color: #43516a;
+  background: #151e2e;
+}
+html[data-theme="dark"] .role-method-button.active {
+  border-color: #60a5fa;
+  background: linear-gradient(135deg, #172a45, #151c2b);
+}
+html[data-theme="dark"] .method-number,
+html[data-theme="dark"] .method-check {
+  background: #2a3548;
+  color: #b6c0cf;
+}
+html[data-theme="dark"] .keypad button {
+  color: #f0e6d4;
+  border-color: #5f5137;
+  background: #302a20;
+}
+html[data-theme="dark"] .keypad button:active { background: #413723; }
+html[data-theme="dark"] .bonus-button.current,
+html[data-theme="dark"] .button.soft,
+html[data-theme="dark"] .delete-entry,
+html[data-theme="dark"] .role-clear-button {
+  color: #d7dfeb;
+  border-color: #43516a;
+  background: #202a3b;
+}
+html[data-theme="dark"] .bonus-button.bb {
+  color: #ff6b7c;
+  background: #2c1820;
+}
+html[data-theme="dark"] .bonus-button.rb {
+  color: #72b3ff;
+  background: #14263e;
+}
+html[data-theme="dark"] .bonus-button.cherry-bonus.bb { background: #391c26; }
+html[data-theme="dark"] .bonus-button.cherry-bonus.rb { background: #18304d; }
+html[data-theme="dark"] .verdict-card {
+  border-color: #65303b;
+  background: linear-gradient(120deg, #2e1820, #151c2b 72%);
+}
+html[data-theme="dark"] .metric.highlight {
+  border-color: #675b2c;
+  background: #302a17;
+}
+html[data-theme="dark"] .metric.grape-highlight {
+  border-color: #285f4b;
+  background: #153428;
+}
+html[data-theme="dark"] .prob-track { background: #263247; }
+html[data-theme="dark"] .best-row td:first-child,
+html[data-theme="dark"] .best-row td:nth-last-child(1),
+html[data-theme="dark"] tr.best-row td {
+  background: #382f17;
+}
+html[data-theme="dark"] .nearest-bb {
+  color: #ff9eaa;
+  background: #341a22 !important;
+}
+html[data-theme="dark"] .nearest-rb {
+  color: #9ccaff;
+  background: #172a45 !important;
+}
+html[data-theme="dark"] .nearest-combined {
+  color: #f8d27d;
+  background: #382f17 !important;
+}
+html[data-theme="dark"] .nearest-grape {
+  color: #91dfbd;
+  background: #153428 !important;
+}
+html[data-theme="dark"] .reference-control-grid .field,
+html[data-theme="dark"] .reference-caution,
+html[data-theme="dark"] .method-flow article {
+  border-color: #39465b;
+  background: #1a2333;
+}
+html[data-theme="dark"] .reference-caution strong { color: #f2d589; }
+html[data-theme="dark"] .reference-caution p { color: #c8c0aa; }
+html[data-theme="dark"] .reference-role-table th:first-child,
+html[data-theme="dark"] .reference-role-table td:first-child {
+  background: #151c2b;
+}
+html[data-theme="dark"] .reference-role-table thead th:first-child {
+  background: #1c2637;
+}
+html[data-theme="dark"] .formula-panel pre { background: #080d17; }
+html[data-theme="dark"] .mobile-bottom-bar {
+  border-top-color: #344054;
+  background: rgba(15,23,38,.96);
+  box-shadow: 0 -6px 20px rgba(0,0,0,.32);
+}
+html[data-theme="dark"] .status-pill,
+html[data-theme="dark"] .badge,
+html[data-theme="dark"] .mode-note,
+html[data-theme="dark"] .legend-chip,
+html[data-theme="dark"] .nearest-summary {
+  color: #cdd6e3;
+  border-color: #43516a;
+  background: #202a3b;
+}
+html[data-theme="dark"] .header-button {
+  color: #f2f5fa;
+  border-color: #627087;
+  background: rgba(255,255,255,.06);
+}
+html[data-theme="dark"] .danger-outline { color: #ffb5bf; }
+html[data-theme="dark"] canvas { filter: brightness(.88) contrast(1.06); }

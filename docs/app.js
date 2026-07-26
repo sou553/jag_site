@@ -181,7 +181,10 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v11';
+const STORAGE_KEY = 'juggler-setting-analyzer-v12';
+const THEME_STORAGE_KEY = 'juggler-theme';
+const DARK_THEME_COLOR = '#0a1020';
+const LIGHT_THEME_COLOR = '#10172a';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -1524,6 +1527,10 @@ function updateHistoryViews() {
 }
 
 function analyze() {
+  if (isFormControl(document.activeElement)) document.activeElement.blur();
+  document.body.classList.remove('keyboard-open');
+  updateKeyboardOffset();
+
   const data = getInputs();
   const issues = validate(data);
   const validation = $('validationMessage');
@@ -1883,19 +1890,94 @@ function exportCsv() {
   URL.revokeObjectURL(url);
 }
 
+function getCurrentTheme() {
+  return document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
+}
+
+function updateThemeToggle() {
+  const dark = getCurrentTheme() === 'dark';
+  $('themeToggle').setAttribute('aria-pressed', String(dark));
+  $('themeToggleIcon').textContent = dark ? '☀' : '☾';
+  $('themeToggleText').textContent = dark ? 'ライト' : 'ダーク';
+
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.setAttribute('content', dark ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
+  }
+}
+
+function applyTheme(theme, persist = false) {
+  const resolved = theme === 'dark' ? 'dark' : 'light';
+  document.documentElement.dataset.theme = resolved;
+  if (persist) localStorage.setItem(THEME_STORAGE_KEY, resolved);
+  updateThemeToggle();
+}
+
+function toggleTheme() {
+  applyTheme(getCurrentTheme() === 'dark' ? 'light' : 'dark', true);
+}
+
+function bindSystemTheme() {
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const handler = (event) => {
+    if (!localStorage.getItem(THEME_STORAGE_KEY)) {
+      applyTheme(event.matches ? 'dark' : 'light', false);
+    }
+  };
+
+  if (typeof media.addEventListener === 'function') media.addEventListener('change', handler);
+  else if (typeof media.addListener === 'function') media.addListener(handler);
+}
+
+function isFormControl(element) {
+  return Boolean(element && element.matches && element.matches('input, textarea, select'));
+}
+
+function updateKeyboardOffset() {
+  if (window.innerWidth > 640 || !document.body.classList.contains('keyboard-open')) {
+    document.documentElement.style.setProperty('--keyboard-offset', '0px');
+    return;
+  }
+
+  const viewport = window.visualViewport;
+  if (!viewport) {
+    document.documentElement.style.setProperty('--keyboard-offset', '0px');
+    return;
+  }
+
+  const keyboardHeight = Math.max(
+    0,
+    window.innerHeight - viewport.height - viewport.offsetTop
+  );
+  document.documentElement.style.setProperty(
+    '--keyboard-offset',
+    `${Math.round(keyboardHeight)}px`
+  );
+}
+
 function bindKeyboardVisibility() {
   document.addEventListener('focusin', (event) => {
-    if (window.innerWidth <= 640 && event.target.matches('input, textarea, select')) {
+    if (window.innerWidth <= 640 && isFormControl(event.target)) {
       document.body.classList.add('keyboard-open');
+      window.setTimeout(updateKeyboardOffset, 50);
+      window.setTimeout(updateKeyboardOffset, 220);
     }
   });
+
   document.addEventListener('focusout', () => {
     window.setTimeout(() => {
-      if (!document.activeElement || !document.activeElement.matches('input, textarea, select')) {
+      if (!isFormControl(document.activeElement)) {
         document.body.classList.remove('keyboard-open');
+        updateKeyboardOffset();
       }
-    }, 120);
+    }, 180);
   });
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', updateKeyboardOffset);
+    window.visualViewport.addEventListener('scroll', updateKeyboardOffset);
+  }
+  window.addEventListener('resize', updateKeyboardOffset);
 }
 
 function bindEvents() {
@@ -1909,6 +1991,7 @@ function bindEvents() {
     button.addEventListener('click', () => handleKeypad(button.dataset.key));
   });
 
+  $('themeToggle').addEventListener('click', toggleTheme);
   $('analyzeButton').addEventListener('click', analyze);
   $('mobileAnalyzeButton').addEventListener('click', analyze);
   $('applyHistory').addEventListener('click', applyHistoryToSummary);
@@ -1996,6 +2079,8 @@ function bindEvents() {
 buildPriorEditor();
 loadState();
 bindEvents();
+updateThemeToggle();
+bindSystemTheme();
 updateMachineNote();
 updateEvidenceWeightLabels();
 updatePriorUsage();
