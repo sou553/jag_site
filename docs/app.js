@@ -181,7 +181,7 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v9';
+const STORAGE_KEY = 'juggler-setting-analyzer-v10';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
@@ -406,6 +406,12 @@ function updateReverseCherryNote() {
   $('reverseCherryNote').textContent = `逆算ではリプレイ1/7.298固定、${MACHINES[machineSelect.value].name}の登録小役値からチェリー約1/${denom.toFixed(2)}を使用します。`;
 }
 
+function normalizeUnsignedNumericInput(value) {
+  return String(value ?? '')
+    .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xFEE0))
+    .replace(/[^\d]/g, '');
+}
+
 function clampNumber(value, min = 0, max = Infinity) {
   const n = Number(value);
   if (!Number.isFinite(n)) return min;
@@ -591,7 +597,7 @@ function calculateBonusBreakdownEvidence(data, machine) {
 }
 
 function getInputs() {
-  const absoluteDiff = Math.abs(Number($('diffCoins').value || 0));
+  const absoluteDiff = Number(normalizeUnsignedNumericInput($('diffCoins').value)) || 0;
   const priorRaw = getPriorRawValues();
   const priorEnabled = $('usePriorCorrection').checked;
   const games = Math.round(clampNumber($('totalGames').value));
@@ -1433,7 +1439,7 @@ function clearHistory() {
   if (!$('historyInput').value.trim() && Number($('currentGames').value) === 0) return;
   if (!window.confirm('登録したボーナス履歴と現在G数を消去します。')) return;
   $('historyInput').value = '';
-  $('currentGames').value = '0';
+  $('currentGames').value = '';
   $('historyParseStatus').textContent = '';
   updateHistoryViews();
   saveState();
@@ -1640,7 +1646,7 @@ function collectState() {
     singleRBCount: $('singleRBCount').value,
     cherryRBCount: $('cherryRBCount').value,
     unknownRBCount: $('unknownRBCount').value,
-    diffCoins: diffSign * Math.abs(Number($('diffCoins').value || 0)),
+    diffCoins: diffSign * (Number(normalizeUnsignedNumericInput($('diffCoins').value)) || 0),
     historyInput: $('historyInput').value,
     currentGames: $('currentGames').value,
     reverseHistory: $('reverseHistory').checked,
@@ -1683,7 +1689,7 @@ function loadState() {
     if (state.diffCoins !== undefined) {
       const signed = Number(state.diffCoins) || 0;
       diffSign = signed < 0 ? -1 : 1;
-      $('diffCoins').value = Math.abs(signed);
+      $('diffCoins').value = signed === 0 ? '' : String(Math.abs(signed));
     }
     if (typeof state.reverseHistory === 'boolean') $('reverseHistory').checked = state.reverseHistory;
     if (typeof state.usePriorCorrection === 'boolean') $('usePriorCorrection').checked = state.usePriorCorrection;
@@ -1713,12 +1719,12 @@ function resetAll() {
 
   localStorage.removeItem(STORAGE_KEY);
   machineSelect.value = 'neo_im';
-  $('totalGames').value = '0';
+  $('totalGames').value = '';
   ['singleBBCount','cherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
-    .forEach((id) => { $(id).value = '0'; });
+    .forEach((id) => { $(id).value = ''; });
   $('bbCount').value = '0';
   $('rbCount').value = '0';
-  $('diffCoins').value = '0';
+  $('diffCoins').value = '';
   diffSign = 1;
   $('historyInput').value = '';
   $('currentGames').value = '0';
@@ -1726,7 +1732,7 @@ function resetAll() {
   $('usePriorCorrection').checked = false;
   $('reverseRoleWeight').value = '25';
   $('reverseCherryCapture').value = '1';
-  $('manualRoleGames').value = '0';
+  $('manualRoleGames').value = '';
   $('smallRoleCapture').value = '1';
   $('manualRoleWeight').value = '50';
   setPriorPreset('uniform');
@@ -1896,6 +1902,12 @@ function bindEvents() {
   $('deleteLastHistory').addEventListener('click', deleteLastHistory);
   $('clearHistory').addEventListener('click', clearHistory);
   $('diffSignToggle').addEventListener('click', toggleDiffSign);
+  $('diffCoins').addEventListener('input', () => {
+    const normalized = normalizeUnsignedNumericInput($('diffCoins').value);
+    if ($('diffCoins').value !== normalized) {
+      $('diffCoins').value = normalized;
+    }
+  });
   $('normalizePrior').addEventListener('click', normalizePriorInputs);
 
   document.querySelectorAll('.prior-preset').forEach((button) => {

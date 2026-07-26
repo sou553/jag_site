@@ -5,10 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
-  <title>6号機ジャグラー 設定推測ツール v9</title>
+  <title>6号機ジャグラー 設定推測ツール v10</title>
   <meta name="description" content="総回転数・BB・RB・差枚・実測小役・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
   <link rel="stylesheet" href="style.css">
-  <link rel="icon" type="image/png" href="./img/mini.jpg">
 </head>
 <body>
   <header class="site-header">
@@ -55,7 +54,7 @@
             <label class="quick-field">
               <span>総回転数</span>
               <div class="number-box">
-                <input id="totalGames" inputmode="numeric" type="number" min="0" step="1" value="0">
+                <input id="totalGames" inputmode="numeric" type="number" min="0" step="1" placeholder="総回転数">
                 <em>G</em>
               </div>
             </label>
@@ -65,7 +64,7 @@
               <div class="signed-number-box">
                 <button id="diffSignToggle" class="sign-toggle" type="button" aria-label="差枚のプラスとマイナスを切り替える" aria-pressed="false">＋</button>
                 <div class="number-box">
-                  <input id="diffCoins" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="diffCoins" inputmode="numeric" type="text" pattern="[0-9]*" autocomplete="off" placeholder="差枚">
                   <em>枚</em>
                 </div>
               </div>
@@ -89,15 +88,15 @@
               <div class="bonus-component-grid">
                 <label class="bonus-component-field">
                   <span>単独BIG</span>
-                  <input id="singleBBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="singleBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                 </label>
                 <label class="bonus-component-field">
                   <span>チェリー重複BIG</span>
-                  <input id="cherryBBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="cherryBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                 </label>
                 <label class="bonus-component-field unknown-component">
                   <span>内訳不明BIG</span>
-                  <input id="unknownBBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="unknownBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                 </label>
               </div>
               <p class="mini-note">単独・重複が分からない回数は「内訳不明」へ入力します。</p>
@@ -117,15 +116,15 @@
               <div class="bonus-component-grid">
                 <label class="bonus-component-field">
                   <span>単独REG</span>
-                  <input id="singleRBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="singleRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                 </label>
                 <label class="bonus-component-field">
                   <span>チェリー重複REG</span>
-                  <input id="cherryRBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="cherryRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                 </label>
                 <label class="bonus-component-field unknown-component">
                   <span>内訳不明REG</span>
-                  <input id="unknownRBCount" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="unknownRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
                 </label>
               </div>
               <p class="mini-note">単独・重複が分からない回数は「内訳不明」へ入力します。</p>
@@ -265,7 +264,7 @@
               <label class="setting-tile field">
                 <span class="setting-label">小役を数えたゲーム数</span>
                 <div class="number-box compact-number-box">
-                  <input id="manualRoleGames" inputmode="numeric" type="number" min="0" step="1" value="0">
+                  <input id="manualRoleGames" inputmode="numeric" type="number" min="0" step="1" placeholder="計測G数">
                   <em>G</em>
                 </div>
                 <small>0なら総回転数を自動使用</small>
@@ -386,7 +385,7 @@
               <textarea id="historyInput" rows="8" placeholder="107 SBB&#10;88 CBB&#10;250 SRB&#10;310 CRB"></textarea>
               <div class="field compact-current">
                 <label for="currentGames">最終ボーナス後の現在G数</label>
-                <div class="number-box"><input id="currentGames" inputmode="numeric" type="number" min="0" step="1" value="0"><em>G</em></div>
+                <div class="number-box"><input id="currentGames" inputmode="numeric" type="number" min="0" step="1" placeholder="現在G数"><em>G</em></div>
               </div>
             </div>
           </details>

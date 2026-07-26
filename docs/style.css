@@ -1700,3 +1700,76 @@ textarea:focus {
   color: #805300;
   font-weight: 900;
 }
+
+
+/* v10: mobile numeric input visibility and empty initial state */
+input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+.signed-number-box {
+  width: 100%;
+  min-width: 0;
+}
+
+.signed-number-box .number-box {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  overflow: visible;
+}
+
+.signed-number-box .number-box input {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 34px 4px 8px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: clamp(20px, 6vw, 27px);
+  letter-spacing: -0.02em;
+}
+
+.signed-number-box .number-box input::placeholder {
+  color: #a0a8b5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.number-box input:placeholder-shown {
+  font-weight: 700;
+}
+
+.bonus-component-field input::placeholder,
+.compact-number-box input::placeholder,
+.quick-field .number-box input::placeholder {
+  color: #a2aab7;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 390px) {
+  .signed-number-box {
+    gap: 4px;
+  }
+
+  .signed-number-box .sign-toggle {
+    flex: 0 0 38px;
+    width: 38px;
+  }
+
+  .signed-number-box .number-box input {
+    padding-left: 5px;
+    padding-right: 27px;
+    font-size: clamp(19px, 6.8vw, 25px);
+  }
+}
