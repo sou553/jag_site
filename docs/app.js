@@ -120,13 +120,14 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v4';
+const STORAGE_KEY = 'juggler-setting-analyzer-v5';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
 const REPLAY_DENOM = 7.298;
 const ROLE_ORDER = ['grape','nonCherry','cherry','singleBB','singleRB','cherryBB','cherryRB','rareCherryBB','cherryBonus'];
 let pendingRoleCounts = {};
+let activeRoleMode = 'reverse';
 const $ = (id) => document.getElementById(id);
 const machineSelect = $('machineSelect');
 let keypadValue = '0';
@@ -158,13 +159,11 @@ function buildPriorEditor() {
 
 
 function getRoleMode() {
-  const selected = document.querySelector('input[name="roleMode"]:checked');
-  return selected ? selected.value : 'reverse';
+  return activeRoleMode;
 }
 
 function setRoleMode(mode) {
-  const radio = document.querySelector(`input[name="roleMode"][value="${mode}"]`);
-  if (radio) radio.checked = true;
+  activeRoleMode = mode === 'manual' ? 'manual' : 'reverse';
   updateRoleMode();
 }
 
@@ -178,43 +177,70 @@ function renderRoleInputs(savedCounts = null) {
 
   available.forEach((key) => {
     const roleData = machine.roles[key];
-    const row = document.createElement('div');
-    row.className = 'role-input-row';
-    row.dataset.roleKey = key;
+    const card = document.createElement('article');
+    card.className = 'role-input-card';
+    card.dataset.roleKey = key;
     const note = roleData.note || (roleData.captureSensitive ? '取りこぼし補正の対象' : 'ボーナス内訳');
-    row.innerHTML = `
-      <div class="role-input-label">
-        <strong>${roleData.label}</strong>
-        <small>${note}</small>
+    const firstDenom = roleData.denoms[0];
+    const sixthDenom = roleData.denoms[5];
+
+    card.innerHTML = `
+      <div class="role-card-head">
+        <div class="role-input-label">
+          <strong>${roleData.label}</strong>
+          <small>${note}</small>
+        </div>
+        <button class="role-clear-button" data-role-action="clear" type="button">空欄に戻す</button>
       </div>
-      <div class="role-counter">
-        <button class="minus" data-role-action="minus" type="button" aria-label="${roleData.label}を1減らす">−</button>
-        <input id="roleCount_${key}" class="role-count-input" data-role-key="${key}" inputmode="numeric" type="number" min="0" step="1" placeholder="空欄" value="${counts[key] ?? ''}">
-        <button class="plus" data-role-action="plus" type="button" aria-label="${roleData.label}を1増やす">＋</button>
+      <div class="role-count-layout">
+        <div class="role-counter">
+          <button class="minus" data-role-action="minus" type="button" aria-label="${roleData.label}を1減らす">−</button>
+          <input id="roleCount_${key}" class="role-count-input" data-role-key="${key}" inputmode="numeric" type="number" min="0" step="1" placeholder="未入力" value="${counts[key] ?? ''}">
+          <button class="plus" data-role-action="plus" type="button" aria-label="${roleData.label}を1増やす">＋</button>
+        </div>
+        <div class="role-rate-box">
+          <span>実測確率</span>
+          <strong id="roleRate_${key}" class="role-live-rate">未使用</strong>
+        </div>
       </div>
-      <div id="roleRate_${key}" class="role-live-rate">未使用</div>`;
-    container.appendChild(row);
+      <div class="role-reference">
+        参考：<strong>設定1 1/${firstDenom}</strong> → <strong>設定6 1/${sixthDenom}</strong>
+      </div>`;
+    container.appendChild(card);
   });
+
+  if (!available.length) {
+    container.innerHTML = '<div class="role-card-empty">この機種で利用できる小役参考値は登録されていません。</div>';
+  }
 
   $('roleDataNote').textContent = available.length
     ? `${machine.name}で利用できる${available.length}項目を表示しています。入力した項目だけ判定に加えます。`
-    : 'この機種で利用できる小役参考値は登録されていません。';
+    : '';
 
   container.querySelectorAll('[data-role-action]').forEach((button) => {
     button.addEventListener('click', () => {
-      const row = button.closest('.role-input-row');
-      const input = row.querySelector('.role-count-input');
-      const current = input.value === '' ? 0 : Math.max(0, Number(input.value) || 0);
-      const next = button.dataset.roleAction === 'plus' ? current + 1 : Math.max(0, current - 1);
-      input.value = String(next);
+      const card = button.closest('.role-input-card');
+      const input = card.querySelector('.role-count-input');
+
+      if (button.dataset.roleAction === 'clear') {
+        input.value = '';
+      } else {
+        const current = input.value === '' ? 0 : Math.max(0, Number(input.value) || 0);
+        input.value = button.dataset.roleAction === 'plus'
+          ? String(current + 1)
+          : String(Math.max(0, current - 1));
+      }
+
       updateRoleRates();
       saveState();
     });
   });
+
   container.querySelectorAll('.role-count-input').forEach((input) => {
     input.addEventListener('input', updateRoleRates);
     input.addEventListener('change', saveState);
   });
+
   pendingRoleCounts = {};
   updateRoleRates();
 }
@@ -232,24 +258,49 @@ function updateRoleRates() {
   const gamesInput = Math.round(clampNumber($('manualRoleGames').value));
   const totalGames = Math.round(clampNumber($('totalGames').value));
   const games = gamesInput > 0 ? gamesInput : totalGames;
+  let usedCount = 0;
+
   document.querySelectorAll('.role-count-input').forEach((input) => {
     const rate = $(`roleRate_${input.dataset.roleKey}`);
+    const card = input.closest('.role-input-card');
     if (!rate) return;
+
     if (input.value.trim() === '') {
       rate.textContent = '未使用';
+      card?.classList.remove('used');
       return;
     }
+
+    usedCount += 1;
+    card?.classList.add('used');
     const count = Math.max(0, Number(input.value) || 0);
-    rate.textContent = games > 0 && count > 0 ? `1/${(games / count).toFixed(2)}` : count === 0 ? '0回' : 'G数未入力';
+    rate.textContent = games > 0 && count > 0
+      ? `1/${(games / count).toFixed(2)}`
+      : count === 0
+        ? '0回'
+        : 'G数未入力';
   });
+
+  if ($('roleInputSummary')) {
+    $('roleInputSummary').textContent = `${usedCount}項目使用`;
+  }
 }
 
 function updateRoleMode() {
   const mode = getRoleMode();
   $('reverseRolePanel').classList.toggle('hidden', mode !== 'reverse');
   $('manualRolePanel').classList.toggle('hidden', mode !== 'manual');
-  $('roleStatusBadge').textContent = mode === 'reverse' ? '差枚で逆算' : '自分で入力';
+  $('roleStatusBadge').textContent = mode === 'reverse' ? '差枚で逆算' : '小役回数を入力';
+
+  const reverseButton = $('reverseModeButton');
+  const manualButton = $('manualModeButton');
+  reverseButton.classList.toggle('active', mode === 'reverse');
+  manualButton.classList.toggle('active', mode === 'manual');
+  reverseButton.setAttribute('aria-selected', String(mode === 'reverse'));
+  manualButton.setAttribute('aria-selected', String(mode === 'manual'));
+
   updateEvidenceWeightLabels();
+  updateRoleRates();
   saveState();
 }
 
@@ -831,6 +882,18 @@ function deleteHistoryAt(index) {
   saveState();
 }
 
+function clearAllRoleInputs() {
+  const inputs = Array.from(document.querySelectorAll('.role-count-input'));
+  if (!inputs.some((input) => input.value.trim() !== '')) return;
+  if (!window.confirm('入力した小役・ボーナス内訳をすべて空欄に戻します。')) return;
+
+  inputs.forEach((input) => {
+    input.value = '';
+  });
+  updateRoleRates();
+  saveState();
+}
+
 function clearHistory() {
   if (!$('historyInput').value.trim() && Number($('currentGames').value) === 0) return;
   if (!window.confirm('登録したボーナス履歴と現在G数を消去します。')) return;
@@ -1045,7 +1108,8 @@ function loadState() {
     }
     pendingRoleCounts = state.roleCounts || {};
     renderRoleInputs(pendingRoleCounts);
-    setRoleMode(state.roleMode || 'reverse');
+    activeRoleMode = state.roleMode === 'manual' ? 'manual' : 'reverse';
+    updateRoleMode();
   } catch (_) {
     renderRoleInputs();
   }
@@ -1240,9 +1304,9 @@ function bindEvents() {
     input.addEventListener('input', () => syncPriorInput(input));
     input.addEventListener('change', saveState);
   });
-  document.querySelectorAll('input[name="roleMode"]').forEach((radio) => {
-    radio.addEventListener('change', updateRoleMode);
-  });
+  $('reverseModeButton').addEventListener('click', () => setRoleMode('reverse'));
+  $('manualModeButton').addEventListener('click', () => setRoleMode('manual'));
+  $('clearAllRoles').addEventListener('click', clearAllRoleInputs);
 
   $('usePriorCorrection').addEventListener('change', () => {
     updatePriorUsage();
