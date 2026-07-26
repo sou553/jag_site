@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light">
-  <title>6号機ジャグラー 設定推測ツール</title>
+  <title>6号機ジャグラー 設定推測ツール v4</title>
   <meta name="description" content="総回転数・BB・RB・差枚・逆算ブドウ・ボーナス履歴から6号機ジャグラーの設定別相対確率を計算する静的Webツールです。">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -15,7 +15,7 @@
       <div>
         <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
         <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
-        <p class="lead">BB・RB・差枚・逆算ブドウ・履歴をまとめて判定</p>
+        <p class="lead">BB・RB・差枚・実測小役・履歴をまとめて判定</p>
       </div>
       <div class="header-actions">
         <button id="loadSample" class="button header-button" type="button">入力例</button>
@@ -93,16 +93,24 @@
             <div><span>合算</span><strong id="liveCombined">—</strong></div>
           </div>
 
+
           <details class="option-block" open>
             <summary>推測条件</summary>
             <div class="option-content">
-              <div class="field range-field no-top-margin">
-                <label for="grapeWeight">逆算ブドウの重み <strong id="grapeWeightValue">35%</strong></label>
-                <input id="grapeWeight" type="range" min="0" max="70" step="5" value="35">
-                <p class="field-note">0%はBB・RBのみ。差枚はブドウ確率へ逆算して判定に加えます。</p>
+              <div class="calculation-policy">
+                <strong>BB・RBの尤度は常に100%使用</strong>
+                <p>小役は追加証拠として加算します。小役を使ってもBB・RBの証拠を弱めません。</p>
               </div>
 
-              <details class="nested-option">
+              <label class="prior-use-switch">
+                <input id="usePriorCorrection" type="checkbox">
+                <span>
+                  <strong>設定配分補正を使う</strong>
+                  <small>OFFでは設定1〜6を均等に扱います。市販ツールとの比較はOFF推奨です。</small>
+                </span>
+              </label>
+
+              <details id="priorDetails" class="nested-option">
                 <summary>設定配分を変更</summary>
                 <div class="allocation-toolbar">
                   <button class="button tiny prior-preset" data-preset="uniform" type="button">均等</button>
@@ -115,30 +123,7 @@
                   <span>入力合計 <strong id="priorTotal">100.00%</strong></span>
                   <button id="normalizePrior" class="button tiny secondary" type="button">100%に正規化</button>
                 </div>
-                <p class="field-note">分析時は入力値の比率を自動で正規化します。設定6を使わない想定なら0%にできます。</p>
-              </details>
-
-              <details class="nested-option">
-                <summary>ブドウ逆算の詳細設定</summary>
-                <div class="advanced-grid">
-                  <label class="field">
-                    <span>リプレイ確率</span>
-                    <div class="fraction-input"><span>1 /</span><input id="replayDenom" type="number" min="1" step="0.001" value="7.298"></div>
-                  </label>
-                  <label class="field">
-                    <span>チェリー確率</span>
-                    <div class="fraction-input"><span>1 /</span><input id="cherryDenom" type="number" min="1" step="0.01" value="34.66"></div>
-                  </label>
-                  <label class="field">
-                    <span>チェリー取得率</span>
-                    <select id="cherryCapture">
-                      <option value="1">100%（チェリー狙い）</option>
-                      <option value="0.5">50%（一部取得）</option>
-                      <option value="0">0%（未取得扱い）</option>
-                    </select>
-                  </label>
-                </div>
-                <p class="field-note">ベル・ピエロ、ボーナスを揃えるまでのロス、データ機器の集計差は含みません。</p>
+                <p class="field-note">補正ON時のみ使用します。分析時に100%へ正規化されます。</p>
               </details>
             </div>
           </details>
@@ -147,10 +132,95 @@
           <button id="analyzeButton" class="button primary desktop-analyze" type="button">設定を推測する</button>
         </section>
 
-        <section class="panel history-entry-panel">
+
+        <section class="panel role-panel">
           <div class="panel-heading">
             <div>
               <p class="section-kicker">STEP 2・任意</p>
+              <h2>小役・ボーナス内訳</h2>
+            </div>
+            <span id="roleStatusBadge" class="status-pill">差枚で逆算</span>
+          </div>
+
+          <div class="role-mode-switch" role="radiogroup" aria-label="小役入力方法">
+            <label>
+              <input type="radio" name="roleMode" value="reverse" checked>
+              <span><strong>差枚で逆算</strong><small>ブドウを推定</small></span>
+            </label>
+            <label>
+              <input type="radio" name="roleMode" value="manual">
+              <span><strong>自分で入力</strong><small>数えた項目だけ使用</small></span>
+            </label>
+          </div>
+
+          <div id="reverseRolePanel" class="role-mode-panel">
+            <div class="role-settings-grid">
+              <div class="fixed-value-card">
+                <span>リプレイ確率</span>
+                <strong>1 / 7.298</strong>
+                <small>全機種共通の固定値</small>
+              </div>
+
+              <label class="field">
+                <span>チェリー取得率</span>
+                <select id="reverseCherryCapture">
+                  <option value="1">100%</option>
+                  <option value="0.9">90%</option>
+                  <option value="0.8">80%</option>
+                  <option value="0.5">50%</option>
+                  <option value="0">0%</option>
+                </select>
+              </label>
+
+              <div class="field range-field no-top-margin">
+                <label for="reverseRoleWeight">逆算ブドウの証拠強度 <strong id="reverseRoleWeightValue">25%</strong></label>
+                <input id="reverseRoleWeight" type="range" min="0" max="100" step="5" value="25">
+                <p class="field-note">差枚逆算は誤差を含むため初期値を低くしています。</p>
+              </div>
+            </div>
+            <p id="reverseCherryNote" class="field-note"></p>
+          </div>
+
+          <div id="manualRolePanel" class="role-mode-panel hidden">
+            <div class="manual-control-grid">
+              <label class="field">
+                <span>小役を数えたゲーム数</span>
+                <div class="number-box"><input id="manualRoleGames" inputmode="numeric" type="number" min="0" step="1" value="0"><em>G</em></div>
+                <p class="field-note">0なら総回転数を使用します。</p>
+              </label>
+
+              <label class="field">
+                <span>小役の捕捉率</span>
+                <select id="smallRoleCapture">
+                  <option value="1">100%（ほぼ完全）</option>
+                  <option value="0.95">95%（少しこぼす）</option>
+                  <option value="0.9">90%（こぼしあり）</option>
+                  <option value="0.8">80%（概算）</option>
+                </select>
+                <p class="field-note">ブドウ・チェリーだけに適用します。</p>
+              </label>
+
+              <div class="field range-field no-top-margin">
+                <label for="manualRoleWeight">入力小役の証拠強度 <strong id="manualRoleWeightValue">50%</strong></label>
+                <input id="manualRoleWeight" type="range" min="0" max="100" step="5" value="50">
+                <p class="field-note">取りこぼしや解析値の誤差を弱める係数です。</p>
+              </div>
+            </div>
+
+            <div class="manual-role-help">
+              <strong>空欄は判定に使いません。</strong>
+              <span>0回を判定に使う場合だけ「0」を入力してください。数えていない項目は空欄のままにします。</span>
+            </div>
+
+            <div id="roleInputs" class="role-input-list"></div>
+            <p id="roleDataNote" class="field-note"></p>
+          </div>
+        </section>
+
+        <section class="panel history-entry-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">STEP 3・任意</p>
               <h2>ボーナス履歴</h2>
             </div>
             <span id="historyCountBadge" class="status-pill">0件</span>
@@ -250,7 +320,7 @@
             <article class="metric"><span>BB確率</span><strong id="actualBB">—</strong></article>
             <article class="metric"><span>RB確率</span><strong id="actualRB">—</strong></article>
             <article class="metric"><span>合算</span><strong id="actualCombined">—</strong></article>
-            <article class="metric grape-highlight"><span>逆算ブドウ</span><strong id="actualGrape">—</strong></article>
+            <article class="metric grape-highlight"><span>小役入力</span><strong id="actualSmallRole">—</strong></article>
             <article class="metric highlight"><span>設定4以上</span><strong id="prob4Plus">—</strong></article>
             <article class="metric highlight"><span>設定5以上</span><strong id="prob5Plus">—</strong></article>
             <article class="metric"><span>推定設定平均</span><strong id="expectedSetting">—</strong></article>
@@ -267,18 +337,37 @@
 
           <section class="subpanel grape-panel">
             <div class="subpanel-title">
-              <h3>差枚からのブドウ逆算</h3>
-              <span id="grapeStatusBadge" class="status-pill">—</span>
+              <h3>小役・内訳の判定内容</h3>
+              <span id="smallRoleStatusBadge" class="status-pill">未使用</span>
             </div>
-            <div class="grape-breakdown">
-              <div><span>総アウト推定</span><strong id="grapeTotalOut">—</strong></div>
-              <div><span>ボーナス獲得</span><strong id="grapeBonusOut">—</strong></div>
-              <div><span>リプレイ推定</span><strong id="grapeReplayOut">—</strong></div>
-              <div><span>チェリー推定</span><strong id="grapeCherryOut">—</strong></div>
-              <div><span>ブドウ獲得</span><strong id="grapePayoutTotal">—</strong></div>
-              <div><span>ブドウ回数</span><strong id="grapeCount">—</strong></div>
+
+            <div id="reverseBreakdown">
+              <div class="grape-breakdown">
+                <div><span>総アウト推定</span><strong id="grapeTotalOut">—</strong></div>
+                <div><span>ボーナス獲得</span><strong id="grapeBonusOut">—</strong></div>
+                <div><span>リプレイ推定</span><strong id="grapeReplayOut">—</strong></div>
+                <div><span>チェリー推定</span><strong id="grapeCherryOut">—</strong></div>
+                <div><span>ブドウ獲得</span><strong id="grapePayoutTotal">—</strong></div>
+                <div><span>ブドウ回数</span><strong id="grapeCount">—</strong></div>
+              </div>
             </div>
-            <p id="grapeCaution" class="field-note"></p>
+
+            <p id="smallRoleCaution" class="field-note"></p>
+
+            <div id="usedRoleTableWrap" class="table-wrap role-result-table hidden">
+              <table>
+                <thead><tr><th>使用項目</th><th>実測</th><th>計測G</th><th>捕捉率</th><th>証拠強度</th><th>最も近い設定</th></tr></thead>
+                <tbody id="usedRoleEvidenceBody"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="subpanel compare-panel">
+            <div class="subpanel-title">
+              <h3>小役補正前との比較</h3>
+              <span id="bonusOnlySummary" class="field-note">—</span>
+            </div>
+            <p class="field-note">市販ツールとの差を確認するときは、設定配分補正をOFFにしてこの値を比較してください。</p>
           </section>
 
           <section class="subpanel table-section">
@@ -349,8 +438,8 @@
         <div class="method-grid">
           <article><h3>BB・RB</h3><p>各ゲームをBB・RB・非当選に分け、機種ごとの設定別確率に対する尤度を計算します。合算だけでなくBBとRBを分けて評価します。</p></article>
           <article><h3>設定配分</h3><p>ユーザーが設定1〜6の投入割合を指定できます。入力値は分析時に合計100%へ正規化し、事前確率として反映します。</p></article>
-          <article><h3>逆算ブドウ</h3><p>総アウトからボーナス・推定リプレイ・推定チェリーを差し引き、残りを8枚役のブドウとして逆算します。設定別ブドウ参考値との尤度を判定へ加えます。</p></article>
-          <article><h3>限界</h3><p>ブドウは実測ではなく差枚からの推定です。ベル・ピエロ、目押しロス、取りこぼし、データ機器の集計差で数値が動くため、BB・RBより低い重みで使ってください。</p></article>
+          <article><h3>小役の統合</h3><p>差枚逆算または実測入力を選べます。空欄の小役は完全に除外し、入力した項目だけを追加尤度として使います。</p></article>
+          <article><h3>計算上の扱い</h3><p>BB・RB尤度は常に100%です。小役は証拠強度を掛けて追加します。差枚逆算は誤差が大きいため、実測小役より弱く扱います。</p></article>
         </div>
         <p class="source-note">外部通信なし。入力内容はブラウザ内に保存されます。静的ファイルだけで動作するためGitHub Pagesに配置できます。</p>
       </section>

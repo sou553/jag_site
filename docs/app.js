@@ -1,104 +1,115 @@
 'use strict';
 
+function role(label, denoms, type = 'small', captureSensitive = true, note = '') {
+  return { label, denoms, type, captureSensitive, note };
+}
+
 const MACHINES = {
   neo_im: {
-    name: 'ネオアイムジャグラーEX',
-    introduced: '2025年9月',
-    note: 'アイムジャグラーEXと同一の公表ボーナス確率・出玉率です。',
+    name: 'ネオアイムジャグラーEX', introduced: '2025年9月',
+    note: 'ボーナス・小役はアイムジャグラーEX相当として扱います。',
     bonusCoins: [252, 96],
-    grapes: [6.02, 6.02, 6.02, 6.02, 6.02, 5.80],
-    specs: [
-      [273.1,439.8,168.5,97.0],[269.7,399.6,161.0,98.0],[269.7,331.0,148.6,99.5],
-      [259.0,315.1,142.2,101.1],[259.0,255.0,128.5,103.3],[255.0,255.0,127.5,105.5]
-    ]
+    specs: [[273.1,439.8,168.5,97.0],[269.7,399.6,161.0,98.0],[269.7,331.0,148.6,99.5],[259.0,315.1,142.2,101.1],[259.0,255.0,128.5,103.3],[255.0,255.0,127.5,105.5]],
+    roles: {
+      grape: role('ブドウ',[6.02,6.02,6.02,6.02,6.02,5.78],'small',true),
+      nonCherry: role('非重複チェリー',[32.2,32.2,32.2,32.2,32.2,32.2],'small',true),
+      singleBB: role('単独BIG',[389,382,382,370,370,362],'bonus',false),
+      singleRB: role('単独REG',[630,575,475,449,364,364],'bonus',false),
+      cherryBB: role('チェリー重複BIG',[916,920,920,863,863,864],'bonus',false),
+      cherryRB: role('チェリー重複REG',[1456,1311,1092,1057,851,851],'bonus',false)
+    }
   },
   ultra: {
-    name: 'ウルトラミラクルジャグラー',
-    introduced: '2024年12月',
-    note: '',
+    name: 'ウルトラミラクルジャグラー', introduced: '2024年12月',
+    note: '小役はブドウ参考値のみ対応しています。',
     bonusCoins: [240, 96],
-    grapes: [5.93, 5.93, 5.93, 5.93, 5.87, 5.81],
-    specs: [
-      [267.5,425.6,164.3,97.0],[261.1,402.1,158.3,98.1],[256.0,350.5,147.9,99.8],
-      [242.7,322.8,138.6,102.1],[233.2,297.9,130.8,104.5],[216.3,277.7,121.6,108.1]
-    ]
+    specs: [[267.5,425.6,164.3,97.0],[261.1,402.1,158.3,98.1],[256.0,350.5,147.9,99.8],[242.7,322.8,138.6,102.1],[233.2,297.9,130.8,104.5],[216.3,277.7,121.6,108.1]],
+    roles: { grape: role('ブドウ',[5.93,5.93,5.93,5.93,5.87,5.81],'small',true) }
   },
   mister: {
-    name: 'ミスタージャグラー',
-    introduced: '2024年7月',
-    note: '',
+    name: 'ミスタージャグラー', introduced: '2024年7月', note: '',
     bonusCoins: [240, 96],
-    grapes: [6.13, 6.07, 6.01, 5.95, 5.88, 5.82],
-    specs: [
-      [268.6,374.5,156.4,97.0],[267.5,354.2,152.4,98.0],[260.1,331.0,145.6,99.8],
-      [249.2,291.3,134.3,102.7],[240.9,257.0,124.4,105.5],[237.4,237.4,118.7,107.3]
-    ]
+    specs: [[268.6,374.5,156.4,97.0],[267.5,354.2,152.4,98.0],[260.1,331.0,145.6,99.8],[249.2,291.3,134.3,102.7],[240.9,257.0,124.4,105.5],[237.4,237.4,118.7,107.3]],
+    roles: {
+      grape: role('ブドウ',[6.21,6.16,6.12,6.08,6.05,6.01],'small',true),
+      cherry: role('チェリー',[40.0,39.5,39.0,38.5,38.0,37.5],'small',true)
+    }
   },
   girls: {
-    name: 'ジャグラーガールズSS',
-    introduced: '2024年4月',
-    note: '',
+    name: 'ジャグラーガールズSS', introduced: '2024年4月', note: '',
     bonusCoins: [240, 96],
-    grapes: [5.98, 5.98, 5.98, 5.89, 5.88, 5.83],
-    specs: [
-      [273.1,381.0,159.1,97.0],[270.8,350.5,152.8,97.9],[260.1,316.6,142.8,99.9],
-      [250.1,281.3,132.4,102.1],[243.6,270.8,128.3,104.0],[226.0,252.1,119.2,107.5]
-    ]
+    specs: [[273.1,381.0,159.1,97.0],[270.8,350.5,152.8,97.9],[260.1,316.6,142.8,99.9],[250.1,281.3,132.4,102.1],[243.6,270.8,128.3,104.0],[226.0,252.1,119.2,107.5]],
+    roles: {
+      grape: role('ブドウ',[5.98,5.98,5.98,5.98,5.88,5.83],'small',true),
+      cherry: role('チェリー',[33.5,33.4,33.3,33.1,33.1,32.9],'small',true)
+    }
   },
   gogo3: {
-    name: 'ゴーゴージャグラー3',
-    introduced: '2023年7月',
-    note: '',
+    name: 'ゴーゴージャグラー3', introduced: '2023年7月', note: '',
     bonusCoins: [240, 96],
-    grapes: [6.25, 6.20, 6.15, 6.07, 6.00, 5.92],
-    specs: [
-      [259.0,354.2,149.6,97.2],[258.0,332.7,145.3,98.2],[257.0,306.2,139.7,99.4],
-      [254.0,268.6,130.5,101.6],[247.3,247.3,123.7,103.8],[234.9,234.9,117.4,106.5]
-    ]
+    specs: [[259.0,354.2,149.6,97.2],[258.0,332.7,145.3,98.2],[257.0,306.2,139.7,99.4],[254.0,268.6,130.5,101.6],[247.3,247.3,123.7,103.8],[234.9,234.9,117.4,106.5]],
+    roles: {
+      grape: role('ブドウ',[6.25,6.20,6.15,6.07,5.99,5.92],'small',true),
+      nonCherry: role('非重複チェリー',[33.4,33.3,33.2,33.1,32.9,32.8],'small',true),
+      singleBB: role('単独BIG',[394.8,392.4,392.4,387.8,381.0,364.1],'bonus',false),
+      singleRB: role('単独REG',[489.1,452.0,436.9,381.0,339.6,327.7],'bonus',false),
+      cherryBB: role('チェリー重複BIG',[1456.4,1456.4,1456.4,1394.4,1394.4,1310.7],'bonus',false),
+      cherryRB: role('チェリー重複REG',[1424.7,1310.7,1170.3,1110.8,1024.0,936.2],'bonus',false),
+      rareCherryBB: role('レアチェリー重複BIG',[1559.0,1560.2,1524.4,1559.6,1424.8,1337.5],'bonus',false,'総BBから単独・チェリー重複を差し引いた推定値')
+    }
   },
   happy3: {
-    name: 'ハッピージャグラーV III',
-    introduced: '2022年10月',
-    note: '',
+    name: 'ハッピージャグラーV III', introduced: '2022年10月', note: '',
     bonusCoins: [240, 96],
-    grapes: [6.07, 6.03, 6.00, 5.86, 5.84, 5.80],
-    specs: [
-      [273.1,397.2,161.8,97.0],[270.8,362.1,154.9,98.1],[263.2,332.7,146.9,99.9],
-      [254.0,300.6,137.7,102.9],[239.2,273.1,127.5,105.8],[226.0,256.0,120.0,108.4]
-    ]
+    specs: [[273.1,397.2,161.8,97.0],[270.8,362.1,154.9,98.1],[263.2,332.7,146.9,99.9],[254.0,300.6,137.7,102.9],[239.2,273.1,127.5,105.8],[226.0,256.0,120.0,108.4]],
+    roles: {
+      grape: role('ブドウ',[6.04,6.01,5.98,5.84,5.81,5.79],'small',true),
+      nonCherry: role('非重複チェリー',[62.2,62.5,63.0,64.0,64.6,65.4],'small',true),
+      singleBB: role('単独BIG',[394.2,387.8,371.2,379.4,349.4,323.6],'bonus',false),
+      singleRB: role('単独REG',[635.5,561.9,532.4,473.7,432.5,426.6],'bonus',false),
+      cherryBonus: role('チェリー重複ボーナス合計',[515.4,496.2,464.2,421.0,389.6,370.3],'bonus',false)
+    }
   },
   my5: {
-    name: 'マイジャグラーV',
-    introduced: '2021年12月',
-    note: '',
+    name: 'マイジャグラーV', introduced: '2021年12月', note: '',
     bonusCoins: [240, 96],
-    grapes: [5.90, 5.86, 5.83, 5.83, 5.83, 5.79],
-    specs: [
-      [273.1,409.6,163.8,97.0],[270.8,385.5,159.1,98.0],[266.4,336.1,148.6,99.9],
-      [254.0,290.0,135.4,102.8],[240.1,268.6,126.8,105.3],[229.1,229.1,114.6,109.4]
-    ]
+    specs: [[273.1,409.6,163.8,97.0],[270.8,385.5,159.1,98.0],[266.4,336.1,148.6,99.9],[254.0,290.0,135.4,102.8],[240.1,268.6,126.8,105.3],[229.1,229.1,114.6,109.4]],
+    roles: {
+      grape: role('ブドウ',[5.90,5.85,5.80,5.78,5.76,5.66],'small',true),
+      nonCherry: role('非重複チェリー',[38.1,38.1,36.8,36.8,35.6,35.6],'small',true),
+      singleBB: role('単独BIG',[420.1,414.8,404.5,376.6,348.6,341.3],'bonus',false),
+      singleRB: role('単独REG',[655.4,595.8,496.5,404.5,390.1,327.7],'bonus',false),
+      cherryBB: role('チェリー重複BIG',[1365,1365,1365,1365,1337,1130],'bonus',false),
+      cherryRB: role('チェリー重複REG',[1092,1092,1040,1024,862,762],'bonus',false),
+      rareCherryBB: role('レアチェリー重複BIG',[1822.6,1820.3,1821.6,1821.3,1823.6,1818.3],'bonus',false,'総BBから単独・チェリー重複を差し引いた推定値')
+    }
   },
   funky2: {
-    name: 'ファンキージャグラー2',
-    introduced: '2021年10月',
-    note: '',
+    name: 'ファンキージャグラー2', introduced: '2021年10月', note: '',
     bonusCoins: [240, 96],
-    grapes: [5.94, 5.92, 5.88, 5.83, 5.76, 5.67],
-    specs: [
-      [266.4,439.8,165.9,97.0],[259.0,407.1,158.3,98.5],[256.0,366.1,150.7,99.8],
-      [249.2,322.8,140.6,102.0],[240.1,299.3,133.2,104.3],[219.9,262.1,119.6,109.0]
-    ]
+    specs: [[266.4,439.8,165.9,97.0],[259.0,407.1,158.3,98.5],[256.0,366.1,150.7,99.8],[249.2,322.8,140.6,102.0],[240.1,299.3,133.2,104.3],[219.9,262.1,119.6,109.0]],
+    roles: {
+      grape: role('ブドウ',[5.94,5.93,5.88,5.83,5.75,5.66],'small',true),
+      nonCherry: role('非重複チェリー',[35.6,35.6,35.6,35.6,35.6,35.6],'small',true),
+      singleBB: role('単独BIG',[405,397,395,383,375,334],'bonus',false),
+      singleRB: role('単独REG',[630,585,512,449,405,352],'bonus',false),
+      cherryBB: role('チェリー重複BIG',[1425,1365,1365,1365,1285,1260],'bonus',false),
+      cherryRB: role('チェリー重複REG',[1456,1338,1285,1150,1150,1024],'bonus',false),
+      rareCherryBB: role('レアチェリー重複BIG',[1715.7,1640.7,1557.6,1494.2,1388.8,1316.0],'bonus',false,'総BBから単独・チェリー重複を差し引いた推定値')
+    }
   },
   im_ex: {
-    name: 'アイムジャグラーEX',
-    introduced: '2020年12月',
-    note: '',
+    name: 'アイムジャグラーEX', introduced: '2020年12月', note: '',
     bonusCoins: [252, 96],
-    grapes: [6.02, 6.02, 6.02, 6.02, 6.02, 5.80],
-    specs: [
-      [273.1,439.8,168.5,97.0],[269.7,399.6,161.0,98.0],[269.7,331.0,148.6,99.5],
-      [259.0,315.1,142.2,101.1],[259.0,255.0,128.5,103.3],[255.0,255.0,127.5,105.5]
-    ]
+    specs: [[273.1,439.8,168.5,97.0],[269.7,399.6,161.0,98.0],[269.7,331.0,148.6,99.5],[259.0,315.1,142.2,101.1],[259.0,255.0,128.5,103.3],[255.0,255.0,127.5,105.5]],
+    roles: {
+      grape: role('ブドウ',[6.02,6.02,6.02,6.02,6.02,5.78],'small',true),
+      nonCherry: role('非重複チェリー',[32.2,32.2,32.2,32.2,32.2,32.2],'small',true),
+      singleBB: role('単独BIG',[389,382,382,370,370,362],'bonus',false),
+      singleRB: role('単独REG',[630,575,475,449,364,364],'bonus',false),
+      cherryBB: role('チェリー重複BIG',[916,920,920,863,863,864],'bonus',false),
+      cherryRB: role('チェリー重複REG',[1456,1311,1092,1057,851,851],'bonus',false)
+    }
   }
 };
 
@@ -109,10 +120,13 @@ const PRIOR_PRESETS = {
   event: [8, 12, 18, 25, 22, 15]
 };
 
-const STORAGE_KEY = 'juggler-setting-analyzer-v3';
+const STORAGE_KEY = 'juggler-setting-analyzer-v4';
 const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
+const REPLAY_DENOM = 7.298;
+const ROLE_ORDER = ['grape','nonCherry','cherry','singleBB','singleRB','cherryBB','cherryRB','rareCherryBB','cherryBonus'];
+let pendingRoleCounts = {};
 const $ = (id) => document.getElementById(id);
 const machineSelect = $('machineSelect');
 let keypadValue = '0';
@@ -140,6 +154,136 @@ function buildPriorEditor() {
       </div>`;
     editor.appendChild(row);
   }
+}
+
+
+function getRoleMode() {
+  const selected = document.querySelector('input[name="roleMode"]:checked');
+  return selected ? selected.value : 'reverse';
+}
+
+function setRoleMode(mode) {
+  const radio = document.querySelector(`input[name="roleMode"][value="${mode}"]`);
+  if (radio) radio.checked = true;
+  updateRoleMode();
+}
+
+function renderRoleInputs(savedCounts = null) {
+  const machine = MACHINES[machineSelect.value];
+  const container = $('roleInputs');
+  container.innerHTML = '';
+
+  const counts = savedCounts || pendingRoleCounts || {};
+  const available = ROLE_ORDER.filter((key) => machine.roles[key]);
+
+  available.forEach((key) => {
+    const roleData = machine.roles[key];
+    const row = document.createElement('div');
+    row.className = 'role-input-row';
+    row.dataset.roleKey = key;
+    const note = roleData.note || (roleData.captureSensitive ? '取りこぼし補正の対象' : 'ボーナス内訳');
+    row.innerHTML = `
+      <div class="role-input-label">
+        <strong>${roleData.label}</strong>
+        <small>${note}</small>
+      </div>
+      <div class="role-counter">
+        <button class="minus" data-role-action="minus" type="button" aria-label="${roleData.label}を1減らす">−</button>
+        <input id="roleCount_${key}" class="role-count-input" data-role-key="${key}" inputmode="numeric" type="number" min="0" step="1" placeholder="空欄" value="${counts[key] ?? ''}">
+        <button class="plus" data-role-action="plus" type="button" aria-label="${roleData.label}を1増やす">＋</button>
+      </div>
+      <div id="roleRate_${key}" class="role-live-rate">未使用</div>`;
+    container.appendChild(row);
+  });
+
+  $('roleDataNote').textContent = available.length
+    ? `${machine.name}で利用できる${available.length}項目を表示しています。入力した項目だけ判定に加えます。`
+    : 'この機種で利用できる小役参考値は登録されていません。';
+
+  container.querySelectorAll('[data-role-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const row = button.closest('.role-input-row');
+      const input = row.querySelector('.role-count-input');
+      const current = input.value === '' ? 0 : Math.max(0, Number(input.value) || 0);
+      const next = button.dataset.roleAction === 'plus' ? current + 1 : Math.max(0, current - 1);
+      input.value = String(next);
+      updateRoleRates();
+      saveState();
+    });
+  });
+  container.querySelectorAll('.role-count-input').forEach((input) => {
+    input.addEventListener('input', updateRoleRates);
+    input.addEventListener('change', saveState);
+  });
+  pendingRoleCounts = {};
+  updateRoleRates();
+}
+
+function readRoleCounts() {
+  const counts = {};
+  document.querySelectorAll('.role-count-input').forEach((input) => {
+    if (input.value.trim() === '') counts[input.dataset.roleKey] = null;
+    else counts[input.dataset.roleKey] = Math.max(0, Math.round(Number(input.value) || 0));
+  });
+  return counts;
+}
+
+function updateRoleRates() {
+  const gamesInput = Math.round(clampNumber($('manualRoleGames').value));
+  const totalGames = Math.round(clampNumber($('totalGames').value));
+  const games = gamesInput > 0 ? gamesInput : totalGames;
+  document.querySelectorAll('.role-count-input').forEach((input) => {
+    const rate = $(`roleRate_${input.dataset.roleKey}`);
+    if (!rate) return;
+    if (input.value.trim() === '') {
+      rate.textContent = '未使用';
+      return;
+    }
+    const count = Math.max(0, Number(input.value) || 0);
+    rate.textContent = games > 0 && count > 0 ? `1/${(games / count).toFixed(2)}` : count === 0 ? '0回' : 'G数未入力';
+  });
+}
+
+function updateRoleMode() {
+  const mode = getRoleMode();
+  $('reverseRolePanel').classList.toggle('hidden', mode !== 'reverse');
+  $('manualRolePanel').classList.toggle('hidden', mode !== 'manual');
+  $('roleStatusBadge').textContent = mode === 'reverse' ? '差枚で逆算' : '自分で入力';
+  updateEvidenceWeightLabels();
+  saveState();
+}
+
+function updateEvidenceWeightLabels() {
+  $('reverseRoleWeightValue').textContent = `${$('reverseRoleWeight').value}%`;
+  $('manualRoleWeightValue').textContent = `${$('manualRoleWeight').value}%`;
+}
+
+function updatePriorUsage() {
+  const enabled = $('usePriorCorrection').checked;
+  $('priorDetails').classList.toggle('prior-disabled', !enabled);
+}
+
+function getReverseCherryDenom(machine) {
+  const probabilities = [];
+  for (let setting = 0; setting < 6; setting += 1) {
+    let p = 0;
+    if (machine.roles.nonCherry) p += 1 / machine.roles.nonCherry.denoms[setting];
+    else if (machine.roles.cherry) p += 1 / machine.roles.cherry.denoms[setting];
+
+    ['cherryBB','cherryRB','rareCherryBB'].forEach((key) => {
+      if (machine.roles[key]) p += 1 / machine.roles[key].denoms[setting];
+    });
+    if (machine.roles.cherryBonus) p += 1 / machine.roles.cherryBonus.denoms[setting];
+    if (p > 0) probabilities.push(p);
+  }
+  if (!probabilities.length) return 33.0;
+  const averageP = probabilities.reduce((a, b) => a + b, 0) / probabilities.length;
+  return 1 / averageP;
+}
+
+function updateReverseCherryNote() {
+  const denom = getReverseCherryDenom(MACHINES[machineSelect.value]);
+  $('reverseCherryNote').textContent = `逆算ではリプレイ1/7.298固定、${MACHINES[machineSelect.value].name}の登録小役値からチェリー約1/${denom.toFixed(2)}を使用します。`;
 }
 
 function clampNumber(value, min = 0, max = Infinity) {
@@ -215,20 +359,28 @@ function getPriorRawValues() {
 
 function getInputs() {
   const absoluteDiff = Math.abs(Number($('diffCoins').value || 0));
+  const priorRaw = getPriorRawValues();
+  const priorEnabled = $('usePriorCorrection').checked;
+  const games = Math.round(clampNumber($('totalGames').value));
+  const manualGamesValue = Math.round(clampNumber($('manualRoleGames').value));
   return {
     machineKey: machineSelect.value,
-    games: Math.round(clampNumber($('totalGames').value)),
+    games,
     bb: Math.round(clampNumber($('bbCount').value)),
     rb: Math.round(clampNumber($('rbCount').value)),
     diff: diffSign * absoluteDiff,
     historyText: $('historyInput').value,
     currentGames: Math.round(clampNumber($('currentGames').value)),
-    grapeWeight: Number($('grapeWeight').value) / 100,
-    priorRaw: getPriorRawValues(),
-    priors: normalizeWeights(getPriorRawValues()),
-    replayDenom: clampNumber($('replayDenom').value, 1),
-    cherryDenom: clampNumber($('cherryDenom').value, 1),
-    cherryCapture: clampNumber($('cherryCapture').value, 0, 1)
+    priorEnabled,
+    priorRaw,
+    priors: priorEnabled ? normalizeWeights(priorRaw) : Array(6).fill(1 / 6),
+    roleMode: getRoleMode(),
+    reverseRoleWeight: Number($('reverseRoleWeight').value) / 100,
+    reverseCherryCapture: clampNumber($('reverseCherryCapture').value, 0, 1),
+    manualRoleWeight: Number($('manualRoleWeight').value) / 100,
+    manualGames: manualGamesValue > 0 ? manualGamesValue : games,
+    smallRoleCapture: clampNumber($('smallRoleCapture').value, 0, 1),
+    roleCounts: readRoleCounts()
   };
 }
 
@@ -238,28 +390,58 @@ function validate(data) {
   if (data.bb + data.rb <= 0) issues.push('BBまたはRB回数を入力してください。');
   if (data.bb + data.rb > data.games) issues.push('BB＋RB回数が総回転数を超えています。');
   if (!Number.isFinite(data.diff)) issues.push('差枚を正しく入力してください。');
-  if (data.priorRaw.reduce((a, b) => a + b, 0) <= 0) issues.push('設定配分を1つ以上入力してください。');
+  if (data.priorEnabled && data.priorRaw.reduce((a, b) => a + b, 0) <= 0) issues.push('設定配分を1つ以上入力してください。');
+
+  if (data.roleMode === 'manual') {
+    if (data.manualGames <= 0) issues.push('小役を数えたゲーム数を入力してください。');
+    Object.entries(data.roleCounts).forEach(([key, count]) => {
+      if (count !== null && count > data.manualGames) {
+        const label = MACHINES[data.machineKey].roles[key]?.label || key;
+        issues.push(`${label}回数が小役計測G数を超えています。`);
+      }
+    });
+  }
   return issues;
 }
 
 function estimateGrape(data, machine) {
+  const cherryDenom = getReverseCherryDenom(machine);
   const totalOut = data.games * 3 + data.diff;
   const bonusOut = data.bb * machine.bonusCoins[0] + data.rb * machine.bonusCoins[1];
-  const replayOut = data.games / data.replayDenom * REPLAY_PAYOUT;
-  const cherryOut = data.games / data.cherryDenom * CHERRY_PAYOUT * data.cherryCapture;
+  const replayOut = data.games / REPLAY_DENOM * REPLAY_PAYOUT;
+  const cherryOut = data.games / cherryDenom * CHERRY_PAYOUT * data.reverseCherryCapture;
   const grapeOut = totalOut - bonusOut - replayOut - cherryOut;
   const grapeCount = grapeOut / GRAPE_PAYOUT;
   const denominator = grapeCount > 0 ? data.games / grapeCount : Infinity;
   const valid = Number.isFinite(denominator) && grapeCount > 0 && grapeCount < data.games && denominator >= 3.5 && denominator <= 12;
   let message = '';
   if (!valid) {
-    message = '逆算値が現実的な範囲外です。差枚・回転数・ボーナス回数、または詳細設定を確認してください。ブドウは判定から除外します。';
+    message = '逆算値が現実的な範囲外です。差枚・回転数・ボーナス回数を確認してください。小役は判定から除外しました。';
   } else if (data.games < 3000) {
-    message = '3,000G未満では差枚と小役の偏りが大きいため、逆算ブドウは参考値です。';
+    message = '3,000G未満の差枚逆算は誤差が大きいため参考値です。';
   } else {
-    message = '差枚からの推定値です。ベル・ピエロ、取りこぼし、ボーナスを揃えるまでのロスで変動します。';
+    message = '差枚からの推定値です。ベル・ピエロ、目押しロス、データ機器の差を含まないため証拠強度を低めにしてください。';
   }
-  return { totalOut, bonusOut, replayOut, cherryOut, grapeOut, grapeCount, denominator, valid, message };
+  return { totalOut, bonusOut, replayOut, cherryOut, grapeOut, grapeCount, denominator, valid, message, cherryDenom };
+}
+
+function binomialLogLikelihood(n, x, probability) {
+  const p = Math.min(1 - 1e-12, Math.max(1e-12, probability));
+  return x * Math.log(p) + (n - x) * Math.log(1 - p);
+}
+
+function closestSettingForRole(roleData, actualDenom) {
+  if (!Number.isFinite(actualDenom)) return '—';
+  let best = 0;
+  let bestDistance = Infinity;
+  roleData.denoms.forEach((denom, index) => {
+    const distance = Math.abs(Math.log(actualDenom / denom));
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = index;
+    }
+  });
+  return `設定${best + 1}`;
 }
 
 function calculate(data) {
@@ -272,46 +454,79 @@ function calculate(data) {
     const pNone = Math.max(1e-12, 1 - pBB - pRB);
     return data.bb * Math.log(pBB) + data.rb * Math.log(pRB) + noBonus * Math.log(pNone);
   });
-  const bonusEvidence = normalizeLogScores(bonusLogLikelihoods);
 
-  const grape = estimateGrape(data, machine);
-  let grapeEvidence = Array(6).fill(1 / 6);
-  let effectiveGrapeWeight = 0;
-  if (grape.valid && data.grapeWeight > 0) {
-    const x = grape.grapeCount;
-    const n = data.games;
-    const grapeLogLikelihoods = machine.grapes.map((denom) => {
-      const p = 1 / denom;
-      return x * Math.log(p) + (n - x) * Math.log(1 - p);
+  const priorLogs = data.priors.map((prior) => Math.log(Math.max(prior, 1e-300)));
+  const bonusOnlyPosterior = normalizeLogScores(bonusLogLikelihoods.map((value, index) => value + priorLogs[index]));
+  const roleLogLikelihoods = Array(6).fill(0);
+  const usedEvidence = [];
+  let grape = { valid: false, message: '小役を使用していません。' };
+
+  if (data.roleMode === 'reverse') {
+    grape = estimateGrape(data, machine);
+    const grapeRole = machine.roles.grape;
+    if (grape.valid && grapeRole && data.reverseRoleWeight > 0) {
+      grapeRole.denoms.forEach((denom, index) => {
+        roleLogLikelihoods[index] += data.reverseRoleWeight
+          * binomialLogLikelihood(data.games, grape.grapeCount, 1 / denom);
+      });
+      usedEvidence.push({
+        key: 'grape',
+        label: 'ブドウ（差枚逆算）',
+        count: grape.grapeCount,
+        games: data.games,
+        denominator: grape.denominator,
+        capture: null,
+        weight: data.reverseRoleWeight,
+        closest: closestSettingForRole(grapeRole, grape.denominator)
+      });
+    }
+  } else {
+    const weight = data.manualRoleWeight;
+    Object.entries(data.roleCounts).forEach(([key, count]) => {
+      if (count === null || weight <= 0) return;
+      const roleData = machine.roles[key];
+      if (!roleData) return;
+      const capture = roleData.captureSensitive ? data.smallRoleCapture : 1;
+      roleData.denoms.forEach((denom, index) => {
+        const pObserved = (1 / denom) * capture;
+        roleLogLikelihoods[index] += weight
+          * binomialLogLikelihood(data.manualGames, count, pObserved);
+      });
+      const correctedCount = roleData.captureSensitive && capture > 0 ? count / capture : count;
+      const actualDenom = correctedCount > 0 ? data.manualGames / correctedCount : Infinity;
+      usedEvidence.push({
+        key,
+        label: roleData.label,
+        count,
+        games: data.manualGames,
+        denominator: actualDenom,
+        capture: roleData.captureSensitive ? capture : null,
+        weight,
+        closest: closestSettingForRole(roleData, actualDenom)
+      });
     });
-    grapeEvidence = normalizeLogScores(grapeLogLikelihoods);
-    effectiveGrapeWeight = data.grapeWeight;
   }
 
-  const combinedLogs = data.priors.map((prior, index) => {
-    const bonusWeight = 1 - effectiveGrapeWeight;
-    return Math.log(Math.max(prior, 1e-300))
-      + bonusWeight * Math.log(Math.max(bonusEvidence[index], 1e-300))
-      + effectiveGrapeWeight * Math.log(Math.max(grapeEvidence[index], 1e-300));
-  });
-  const posterior = normalizeLogScores(combinedLogs);
+  const posterior = normalizeLogScores(
+    bonusLogLikelihoods.map((value, index) => value + roleLogLikelihoods[index] + priorLogs[index])
+  );
   const expectedDiffs = machine.specs.map((spec) => 3 * data.games * (spec[3] / 100 - 1));
 
   return {
     machine,
     posterior,
-    bonusEvidence,
-    grapeEvidence,
+    bonusOnlyPosterior,
+    roleLogLikelihoods,
+    usedEvidence,
     grape,
-    effectiveGrapeWeight,
     expectedDiffs
   };
 }
 
-function getConfidence(games, grapeValid) {
+function getConfidence(games, roleUsed) {
   if (games < 1000) return ['参考', 'low'];
   if (games < 3000) return ['信頼度 低', 'low'];
-  if (games < 5000) return [grapeValid ? '信頼度 中' : '信頼度 低', grapeValid ? 'medium' : 'low'];
+  if (games < 5000) return [roleUsed ? '信頼度 中' : '信頼度 低', roleUsed ? 'medium' : 'low'];
   if (games < 8000) return ['信頼度 高', 'high'];
   return ['信頼度 高+', 'high'];
 }
@@ -346,7 +561,8 @@ function renderResult(data, result) {
   $('emptyResult').classList.add('hidden');
   $('resultContent').classList.remove('hidden');
 
-  const confidence = getConfidence(data.games, result.grape.valid);
+  const roleUsed = result.usedEvidence.length > 0;
+  const confidence = getConfidence(data.games, roleUsed);
   $('confidenceBadge').textContent = confidence[0];
   $('confidenceBadge').className = `badge ${confidence[1]}`;
 
@@ -358,15 +574,32 @@ function renderResult(data, result) {
   $('actualBB').textContent = formatDenominator(data.games, data.bb);
   $('actualRB').textContent = formatDenominator(data.games, data.rb);
   $('actualCombined').textContent = formatDenominator(data.games, data.bb + data.rb);
-  $('actualGrape').textContent = result.grape.valid ? `1/${result.grape.denominator.toFixed(3)}` : '算出不可';
+
+  if (!roleUsed) $('actualSmallRole').textContent = '未使用';
+  else if (result.usedEvidence.length === 1) {
+    const evidence = result.usedEvidence[0];
+    $('actualSmallRole').textContent = Number.isFinite(evidence.denominator)
+      ? `${evidence.label.replace('（差枚逆算）','')} 1/${evidence.denominator.toFixed(3)}`
+      : `${evidence.label} 0回`;
+  } else {
+    $('actualSmallRole').textContent = `${result.usedEvidence.length}項目使用`;
+  }
+
   $('prob4Plus').textContent = formatPercent(verdict.p4);
   $('prob5Plus').textContent = formatPercent(verdict.p5);
   $('expectedSetting').textContent = result.posterior.reduce((sum, probability, index) => sum + probability * (index + 1), 0).toFixed(2);
-  const topPriorIndex = data.priors.indexOf(Math.max(...data.priors));
-  $('priorSummary').textContent = `設定${topPriorIndex + 1} ${formatPercent(data.priors[topPriorIndex], 0)}`;
-  $('analysisModeLabel').textContent = result.grape.valid
-    ? `BB/RB ${Math.round((1 - result.effectiveGrapeWeight) * 100)}%・逆算ブドウ ${Math.round(result.effectiveGrapeWeight * 100)}%`
-    : 'BB/RB 100%・逆算ブドウ除外';
+
+  if (data.priorEnabled) {
+    const topPriorIndex = data.priors.indexOf(Math.max(...data.priors));
+    $('priorSummary').textContent = `設定${topPriorIndex + 1} ${formatPercent(data.priors[topPriorIndex], 0)}`;
+  } else {
+    $('priorSummary').textContent = '補正なし';
+  }
+
+  const roleLabel = data.roleMode === 'reverse'
+    ? `逆算ブドウ ${Math.round(data.reverseRoleWeight * 100)}%`
+    : roleUsed ? `実測小役 ${Math.round(data.manualRoleWeight * 100)}%` : '小役なし';
+  $('analysisModeLabel').textContent = `BB/RB 100% ＋ ${roleLabel}${data.priorEnabled ? ' ＋ 設定配分' : ''}`;
 
   const bars = $('probabilityBars');
   bars.innerHTML = '';
@@ -380,18 +613,51 @@ function renderResult(data, result) {
     bars.appendChild(row);
   });
 
-  $('grapeStatusBadge').textContent = result.grape.valid ? '推定成功' : '判定から除外';
-  $('grapeStatusBadge').className = result.grape.valid ? 'status-pill grape-ok' : 'status-pill grape-error';
-  $('grapeTotalOut').textContent = formatCoins(result.grape.totalOut);
-  $('grapeBonusOut').textContent = formatCoins(result.grape.bonusOut);
-  $('grapeReplayOut').textContent = formatCoins(result.grape.replayOut);
-  $('grapeCherryOut').textContent = formatCoins(result.grape.cherryOut);
-  $('grapePayoutTotal').textContent = formatCoins(result.grape.grapeOut);
-  $('grapeCount').textContent = result.grape.valid ? `${Math.round(result.grape.grapeCount).toLocaleString('ja-JP')}回` : '—';
-  $('grapeCaution').textContent = result.grape.message;
+  const reverse = data.roleMode === 'reverse';
+  $('reverseBreakdown').classList.toggle('hidden', !reverse);
+  $('smallRoleStatusBadge').textContent = roleUsed ? `${result.usedEvidence.length}項目使用` : '未使用';
+  $('smallRoleStatusBadge').className = roleUsed ? 'status-pill grape-ok' : 'status-pill';
+
+  if (reverse) {
+    $('grapeTotalOut').textContent = result.grape.totalOut !== undefined ? formatCoins(result.grape.totalOut) : '—';
+    $('grapeBonusOut').textContent = result.grape.bonusOut !== undefined ? formatCoins(result.grape.bonusOut) : '—';
+    $('grapeReplayOut').textContent = result.grape.replayOut !== undefined ? formatCoins(result.grape.replayOut) : '—';
+    $('grapeCherryOut').textContent = result.grape.cherryOut !== undefined ? formatCoins(result.grape.cherryOut) : '—';
+    $('grapePayoutTotal').textContent = result.grape.grapeOut !== undefined ? formatCoins(result.grape.grapeOut) : '—';
+    $('grapeCount').textContent = result.grape.valid ? `${Math.round(result.grape.grapeCount).toLocaleString('ja-JP')}回` : '—';
+    $('smallRoleCaution').textContent = result.grape.message;
+  } else {
+    $('smallRoleCaution').textContent = roleUsed
+      ? '空欄項目は除外しました。ブドウ・チェリーは入力した捕捉率で補正しています。'
+      : '小役入力が空欄のため、BB・RBだけで推測しました。';
+  }
+
+  const usedWrap = $('usedRoleTableWrap');
+  const usedBody = $('usedRoleEvidenceBody');
+  usedBody.innerHTML = '';
+  usedWrap.classList.toggle('hidden', !roleUsed);
+  result.usedEvidence.forEach((evidence) => {
+    const tr = document.createElement('tr');
+    const actual = Number.isFinite(evidence.denominator)
+      ? `1/${evidence.denominator.toFixed(3)}（${Math.round(evidence.count)}回）`
+      : `0回`;
+    tr.innerHTML = `
+      <td>${evidence.label}</td>
+      <td>${actual}</td>
+      <td>${evidence.games.toLocaleString('ja-JP')}G</td>
+      <td>${evidence.capture === null ? '—' : formatPercent(evidence.capture, 0)}</td>
+      <td>${formatPercent(evidence.weight, 0)}</td>
+      <td>${evidence.closest}</td>`;
+    usedBody.appendChild(tr);
+  });
+
+  const bonusOnlyTop = result.bonusOnlyPosterior.indexOf(Math.max(...result.bonusOnlyPosterior)) + 1;
+  $('bonusOnlySummary').textContent =
+    `BB/RB＋配分のみ：設定${bonusOnlyTop} ${formatPercent(result.bonusOnlyPosterior[bonusOnlyTop - 1])}`;
 
   const tbody = $('specComparisonBody');
   tbody.innerHTML = '';
+  const grapeRole = result.machine.roles.grape;
   result.machine.specs.forEach((spec, index) => {
     const tr = document.createElement('tr');
     if (index + 1 === verdict.top) tr.className = 'best-row';
@@ -400,7 +666,7 @@ function renderResult(data, result) {
       <td>1/${spec[0]}</td>
       <td>1/${spec[1]}</td>
       <td>1/${spec[2]}</td>
-      <td>1/${result.machine.grapes[index].toFixed(2)}</td>
+      <td>${grapeRole ? `1/${grapeRole.denoms[index].toFixed(2)}` : '—'}</td>
       <td>${spec[3].toFixed(1)}%</td>
       <td>${formatSigned(result.expectedDiffs[index])}</td>
       <td>${formatPercent(result.posterior[index])}</td>`;
@@ -662,10 +928,11 @@ function applyHistoryToSummary() {
 function updateMachineNote() {
   const machine = MACHINES[machineSelect.value];
   $('machineNote').textContent = `${machine.introduced}${machine.note ? `｜${machine.note}` : ''}｜BIG ${machine.bonusCoins[0]}枚・REG ${machine.bonusCoins[1]}枚`;
+  updateReverseCherryNote();
 }
 
 function updateGrapeWeight() {
-  $('grapeWeightValue').textContent = `${$('grapeWeight').value}%`;
+  updateEvidenceWeightLabels();
 }
 
 function updateDiffSignButton() {
@@ -726,12 +993,16 @@ function collectState() {
     diffCoins: diffSign * Math.abs(Number($('diffCoins').value || 0)),
     historyInput: $('historyInput').value,
     currentGames: $('currentGames').value,
-    grapeWeight: $('grapeWeight').value,
     reverseHistory: $('reverseHistory').checked,
-    replayDenom: $('replayDenom').value,
-    cherryDenom: $('cherryDenom').value,
-    cherryCapture: $('cherryCapture').value,
-    priorValues: getPriorRawValues()
+    usePriorCorrection: $('usePriorCorrection').checked,
+    priorValues: getPriorRawValues(),
+    roleMode: getRoleMode(),
+    reverseRoleWeight: $('reverseRoleWeight').value,
+    reverseCherryCapture: $('reverseCherryCapture').value,
+    manualRoleGames: $('manualRoleGames').value,
+    smallRoleCapture: $('smallRoleCapture').value,
+    manualRoleWeight: $('manualRoleWeight').value,
+    roleCounts: readRoleCounts()
   };
 }
 
@@ -751,9 +1022,12 @@ function saveState() {
 function loadState() {
   try {
     const state = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!state) return;
+    if (!state) {
+      renderRoleInputs();
+      return;
+    }
     if (MACHINES[state.machineKey]) machineSelect.value = state.machineKey;
-    ['totalGames','bbCount','rbCount','historyInput','currentGames','grapeWeight','replayDenom','cherryDenom','cherryCapture'].forEach((id) => {
+    ['totalGames','bbCount','rbCount','historyInput','currentGames','reverseRoleWeight','reverseCherryCapture','manualRoleGames','smallRoleCapture','manualRoleWeight'].forEach((id) => {
       if (state[id] !== undefined && $(id)) $(id).value = state[id];
     });
     if (state.diffCoins !== undefined) {
@@ -762,14 +1036,18 @@ function loadState() {
       $('diffCoins').value = Math.abs(signed);
     }
     if (typeof state.reverseHistory === 'boolean') $('reverseHistory').checked = state.reverseHistory;
+    if (typeof state.usePriorCorrection === 'boolean') $('usePriorCorrection').checked = state.usePriorCorrection;
     if (Array.isArray(state.priorValues) && state.priorValues.length === 6) {
       state.priorValues.forEach((value, index) => {
         $(`priorRange${index + 1}`).value = clampNumber(value, 0, 100);
         $(`priorValue${index + 1}`).value = clampNumber(value, 0, 100);
       });
     }
+    pendingRoleCounts = state.roleCounts || {};
+    renderRoleInputs(pendingRoleCounts);
+    setRoleMode(state.roleMode || 'reverse');
   } catch (_) {
-    // 壊れた保存値は無視する。
+    renderRoleInputs();
   }
 }
 
@@ -778,7 +1056,8 @@ function resetAll() {
     || Number($('bbCount').value) !== 0
     || Number($('rbCount').value) !== 0
     || Number($('diffCoins').value) !== 0
-    || $('historyInput').value.trim();
+    || $('historyInput').value.trim()
+    || Object.values(readRoleCounts()).some((value) => value !== null);
   if (hasData && !window.confirm('入力内容と履歴をすべて消去します。')) return;
 
   localStorage.removeItem(STORAGE_KEY);
@@ -790,13 +1069,18 @@ function resetAll() {
   diffSign = 1;
   $('historyInput').value = '';
   $('currentGames').value = '0';
-  $('grapeWeight').value = '35';
   $('reverseHistory').checked = true;
-  $('replayDenom').value = '7.298';
-  $('cherryDenom').value = '34.66';
-  $('cherryCapture').value = '1';
+  $('usePriorCorrection').checked = false;
+  $('reverseRoleWeight').value = '25';
+  $('reverseCherryCapture').value = '1';
+  $('manualRoleGames').value = '0';
+  $('smallRoleCapture').value = '1';
+  $('manualRoleWeight').value = '50';
   setPriorPreset('uniform');
   keypadValue = '0';
+  pendingRoleCounts = {};
+  renderRoleInputs();
+  setRoleMode('reverse');
 
   $('resultContent').classList.add('hidden');
   $('emptyResult').classList.remove('hidden');
@@ -809,30 +1093,38 @@ function resetAll() {
   window.lastAnalysis = null;
 
   updateMachineNote();
-  updateGrapeWeight();
+  updateEvidenceWeightLabels();
+  updatePriorUsage();
   updateDiffSignButton();
   updateKeypadDisplay();
   updateLiveRates();
+  updateRoleRates();
   updateHistoryViews();
   setActiveTab('input');
 }
 
 function loadSample() {
-  machineSelect.value = 'neo_im';
-  $('totalGames').value = '7371';
-  $('bbCount').value = '28';
-  $('rbCount').value = '28';
-  $('diffCoins').value = '600';
-  diffSign = 1;
-  $('historyInput').value = '107 BB\n154 RB\n82 BB\n310 RB\n65 BB\n210 RB\n98 BB\n441 RB\n73 BB\n122 RB\n268 BB\n91 RB';
-  $('currentGames').value = '107';
-  $('grapeWeight').value = '35';
-  $('replayDenom').value = '7.298';
-  $('cherryDenom').value = '34.66';
-  $('cherryCapture').value = '1';
+  machineSelect.value = 'im_ex';
+  $('totalGames').value = '1399';
+  $('bbCount').value = '4';
+  $('rbCount').value = '1';
+  $('diffCoins').value = '566';
+  diffSign = -1;
+  $('historyInput').value = '455 BB\n698 RB\n246 BB';
+  $('currentGames').value = '0';
+  $('usePriorCorrection').checked = false;
+  $('reverseRoleWeight').value = '25';
+  $('reverseCherryCapture').value = '1';
+  $('manualRoleGames').value = '1399';
+  $('smallRoleCapture').value = '1';
+  $('manualRoleWeight').value = '50';
   setPriorPreset('uniform');
+  pendingRoleCounts = {};
+  renderRoleInputs();
+  setRoleMode('reverse');
   updateMachineNote();
-  updateGrapeWeight();
+  updateEvidenceWeightLabels();
+  updatePriorUsage();
   updateDiffSignButton();
   updateLiveRates();
   updateHistoryViews();
@@ -856,21 +1148,34 @@ function exportCsv() {
     ['実測BB確率', formatDenominator(data.games, data.bb)],
     ['実測RB確率', formatDenominator(data.games, data.rb)],
     ['実測合算', formatDenominator(data.games, data.bb + data.rb)],
-    ['逆算ブドウ', result.grape.valid ? `1/${result.grape.denominator.toFixed(3)}` : '算出不可'],
-    ['逆算ブドウ回数', result.grape.valid ? Math.round(result.grape.grapeCount) : ''],
-    ['逆算ブドウ重み', result.effectiveGrapeWeight],
+    ['小役モード', data.roleMode === 'reverse' ? '差枚で逆算' : '自分で入力'],
+    ['設定配分補正', data.priorEnabled ? '使用' : '未使用'],
     [],
-    ['設定','事前配分','相対確率','公表BB','公表RB','公表合算','ブドウ参考','出玉率','期待差枚']
+    ['使用小役','回数','計測G','実測確率','捕捉率','証拠強度','最接近設定']
   ];
+  result.usedEvidence.forEach((evidence) => {
+    rows.push([
+      evidence.label,
+      Math.round(evidence.count),
+      evidence.games,
+      Number.isFinite(evidence.denominator) ? `1/${evidence.denominator.toFixed(3)}` : '0回',
+      evidence.capture === null ? '' : evidence.capture,
+      evidence.weight,
+      evidence.closest
+    ]);
+  });
+  rows.push([], ['設定','事前配分','相対確率','BB/RBのみ','公表BB','公表RB','公表合算','ブドウ参考','出玉率','期待差枚']);
+  const grapeRole = result.machine.roles.grape;
   result.machine.specs.forEach((spec, index) => {
     rows.push([
       index + 1,
       data.priors[index],
       result.posterior[index],
+      result.bonusOnlyPosterior[index],
       spec[0],
       spec[1],
       spec[2],
-      result.machine.grapes[index],
+      grapeRole ? grapeRole.denoms[index] : '',
       spec[3],
       Math.round(result.expectedDiffs[index])
     ]);
@@ -883,7 +1188,7 @@ function exportCsv() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `juggler_analysis_${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.download = `juggler_analysis_v4_${new Date().toISOString().slice(0, 10)}.csv`;
   anchor.click();
   URL.revokeObjectURL(url);
 }
@@ -927,6 +1232,7 @@ function bindEvents() {
   $('clearHistory').addEventListener('click', clearHistory);
   $('diffSignToggle').addEventListener('click', toggleDiffSign);
   $('normalizePrior').addEventListener('click', normalizePriorInputs);
+
   document.querySelectorAll('.prior-preset').forEach((button) => {
     button.addEventListener('click', () => setPriorPreset(button.dataset.preset));
   });
@@ -934,18 +1240,37 @@ function bindEvents() {
     input.addEventListener('input', () => syncPriorInput(input));
     input.addEventListener('change', saveState);
   });
+  document.querySelectorAll('input[name="roleMode"]').forEach((radio) => {
+    radio.addEventListener('change', updateRoleMode);
+  });
+
+  $('usePriorCorrection').addEventListener('change', () => {
+    updatePriorUsage();
+    saveState();
+  });
+  $('reverseRoleWeight').addEventListener('input', updateEvidenceWeightLabels);
+  $('manualRoleWeight').addEventListener('input', updateEvidenceWeightLabels);
+  $('manualRoleGames').addEventListener('input', updateRoleRates);
+
   $('reverseHistory').addEventListener('change', () => {
     updateHistoryViews();
     saveState();
   });
 
   machineSelect.addEventListener('change', () => {
+    pendingRoleCounts = {};
+    renderRoleInputs();
     updateMachineNote();
     updateHistoryViews();
     saveState();
   });
-  $('grapeWeight').addEventListener('input', updateGrapeWeight);
-  ['totalGames','bbCount','rbCount'].forEach((id) => $(id).addEventListener('input', updateLiveRates));
+
+  ['totalGames','bbCount','rbCount'].forEach((id) => {
+    $(id).addEventListener('input', () => {
+      updateLiveRates();
+      updateRoleRates();
+    });
+  });
   $('historyInput').addEventListener('input', updateHistoryViews);
 
   document.querySelectorAll('input, select, textarea').forEach((element) => {
@@ -958,9 +1283,11 @@ buildPriorEditor();
 loadState();
 bindEvents();
 updateMachineNote();
-updateGrapeWeight();
+updateEvidenceWeightLabels();
+updatePriorUsage();
 updateDiffSignButton();
 updateKeypadDisplay();
 updateLiveRates();
+updateRoleRates();
 updatePriorTotal();
 updateHistoryViews();
