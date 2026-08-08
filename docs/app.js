@@ -220,14 +220,14 @@ const PRIOR_PRESETS = {
 };
 
 const APP_META = Object.freeze({
-  version: '15.1.0',
-  release: 'v15.1.0',
+  version: '15.2.0',
+  release: 'v15.2.0',
   channel: 'stable',
   schemaVersion: 15,
   dataVersion: '2026.07.26-r2',
-  assetVersion: '15.1.0',
-  buildId: '20260809-003700-v15.1',
-  builtAt: '2026-08-08T15:37:00Z'
+  assetVersion: '15.2.0',
+  buildId: '20260809-020300-v15.2',
+  builtAt: '2026-08-08T17:03:00Z'
 });
 const STORAGE_KEY = 'juggler-setting-analyzer';
 const LEGACY_STORAGE_KEYS = [
@@ -248,6 +248,74 @@ const GRAPE_PAYOUT = 8;
 const REPLAY_PAYOUT = 3;
 const CHERRY_PAYOUT = 2;
 const REPLAY_DENOM = 7.298;
+
+// Difference-coin grape reverse model based on the publicly described play conditions:
+// Cherry OFF = random play / bonus alignment with 1BET / no grape extraction.
+// Cherry ON  = cherry targeting / bonus alignment with 1BET / grape extraction.
+// The exact private coefficients of external simulators are not published, so values that are
+// not directly public are kept as explicit machine profiles instead of hidden magic numbers.
+const REVERSE_MODEL_VERSION = 'public-play-v2';
+const REVERSE_MACHINE_PROFILES = Object.freeze({
+  neo_im: {
+    offCherryCapture: 14 / 21,
+    fullCherryDenom: 33.333333,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: 'アイム系：適当押しチェリー14/21、完全取得時は1/33.33相当を基準'
+  },
+  im_ex: {
+    offCherryCapture: 14 / 21,
+    fullCherryDenom: 33.333333,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: 'Sアイム：公開計算条件の適当押しチェリー1/50（14/21取得）を基準'
+  },
+  my5: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: 'チェリー確率はBB/RBから求めた設定重みで登録役確率を加重平均'
+  },
+  funky2: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: 'チェリー確率はBB/RBから求めた設定重みで登録役確率を加重平均'
+  },
+  gogo3: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: '1BETブドウ8枚。チェリー確率はBB/RB適応型'
+  },
+  happy3: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    onOneBetGamesPerBonus: 1.344,
+    onOneBetGrapesPerBonus: 0.113,
+    sourceNote: 'ハッピーV3：公開検証例の1BET平均1.344G・1BETブドウ0.113回/ボーナスを採用'
+  },
+  girls: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: 'チェリー確率はBB/RB適応型。1BET値は6号機共通近似'
+  },
+  mister: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    sourceNote: '打ち手差が大きい機種として参考値扱い。チェリー確率はBB/RB適応型'
+  },
+  ultra: {
+    offCherryCapture: 2 / 3,
+    oneBetGrapeDenom: 15,
+    oneBetGrapePayout: 8,
+    fallbackCherryDenom: 33,
+    sourceNote: 'チェリー詳細未登録のため1/33を補助基準。1BET値は6号機共通近似'
+  }
+});
 const ROLE_ORDER = ['grape','nonCherry','cherry','singleBB','singleRB','cherryBB','cherryRB','rareCherryBB','cherryBonus'];
 let pendingRoleCounts = {};
 let activeRoleMode = 'reverse';
@@ -458,27 +526,106 @@ function updatePriorUsage() {
   $('priorDetails').classList.toggle('prior-disabled', !enabled);
 }
 
-function getReverseCherryDenom(machine) {
-  const probabilities = [];
-  for (let setting = 0; setting < 6; setting += 1) {
-    let p = 0;
-    if (machine.roles.nonCherry) p += 1 / machine.roles.nonCherry.denoms[setting];
-    else if (machine.roles.cherry) p += 1 / machine.roles.cherry.denoms[setting];
+function normalizeReversePlayMode(value) {
+  if (value === 'on' || value === 'off') return value;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? 'on' : 'off';
+}
 
-    ['cherryBB','cherryRB','rareCherryBB'].forEach((key) => {
-      if (machine.roles[key]) p += 1 / machine.roles[key].denoms[setting];
-    });
-    if (machine.roles.cherryBonus) p += 1 / machine.roles.cherryBonus.denoms[setting];
-    if (p > 0) probabilities.push(p);
+function getReverseSettingWeights(data, machine) {
+  if (!data || data.games <= 0 || !machine?.specs?.length) return Array(6).fill(1 / 6);
+  const n = Math.max(0, data.games);
+  const bb = Math.max(0, Math.min(n, data.bb || 0));
+  const rb = Math.max(0, Math.min(n - bb, data.rb || 0));
+  const none = Math.max(0, n - bb - rb);
+  const logs = machine.specs.map((spec, settingIndex) => {
+    const pBB = Math.min(1 - 1e-12, Math.max(1e-12, 1 / spec[0]));
+    const pRB = Math.min(1 - 1e-12, Math.max(1e-12, 1 / spec[1]));
+    const pNone = Math.min(1 - 1e-12, Math.max(1e-12, 1 - pBB - pRB));
+    const prior = Array.isArray(data.priors) && data.priors.length === 6
+      ? Math.max(1e-12, Number(data.priors[settingIndex]) || 0)
+      : 1 / 6;
+    return Math.log(prior) + bb * Math.log(pBB) + rb * Math.log(pRB) + none * Math.log(pNone);
+  });
+  const maxLog = Math.max(...logs);
+  const weights = logs.map((value) => Math.exp(value - maxLog));
+  const total = weights.reduce((sum, value) => sum + value, 0);
+  return total > 0 ? weights.map((value) => value / total) : Array(6).fill(1 / 6);
+}
+
+function getMachineCherryProbabilityBySetting(machine, settingIndex) {
+  if (!machine?.roles) return null;
+  if (machine.roles.cherry) return 1 / machine.roles.cherry.denoms[settingIndex];
+
+  let probability = 0;
+  if (machine.roles.nonCherry) probability += 1 / machine.roles.nonCherry.denoms[settingIndex];
+  ['cherryBB','cherryRB','rareCherryBB'].forEach((key) => {
+    if (machine.roles[key]) probability += 1 / machine.roles[key].denoms[settingIndex];
+  });
+  if (machine.roles.cherryBonus) probability += 1 / machine.roles.cherryBonus.denoms[settingIndex];
+  return probability > 0 ? probability : null;
+}
+
+function getReverseCherryStats(data, machine) {
+  const machineKey = data?.machineKey || Object.entries(MACHINES).find(([, item]) => item === machine)?.[0] || 'im_ex';
+  const profile = REVERSE_MACHINE_PROFILES[machineKey] || {};
+  const mode = normalizeReversePlayMode(data?.reversePlayMode ?? data?.reverseCherryCapture);
+  const weights = getReverseSettingWeights(data, machine);
+
+  let fullProbability = profile.fullCherryDenom ? 1 / profile.fullCherryDenom : 0;
+  let source = profile.fullCherryDenom ? '機種別公開基準' : 'BB/RB適応型';
+
+  if (!fullProbability) {
+    fullProbability = weights.reduce((sum, weight, settingIndex) => {
+      const p = getMachineCherryProbabilityBySetting(machine, settingIndex);
+      return sum + weight * (p || 0);
+    }, 0);
   }
-  if (!probabilities.length) return 33.0;
-  const averageP = probabilities.reduce((a, b) => a + b, 0) / probabilities.length;
-  return 1 / averageP;
+  if (!fullProbability && profile.fallbackCherryDenom) {
+    fullProbability = 1 / profile.fallbackCherryDenom;
+    source = '機種別補助基準';
+  }
+  if (!fullProbability) {
+    fullProbability = 1 / 33;
+    source = '共通補助基準';
+  }
+
+  const capture = mode === 'on' ? 1 : (profile.offCherryCapture ?? (2 / 3));
+  const effectiveProbability = fullProbability * capture;
+  return {
+    mode,
+    capture,
+    fullDenom: 1 / fullProbability,
+    effectiveDenom: 1 / effectiveProbability,
+    weights,
+    source,
+    profile
+  };
+}
+
+function getReverseCherryDenom(machine, data = null) {
+  const fallbackData = data || {
+    machineKey: Object.entries(MACHINES).find(([, item]) => item === machine)?.[0],
+    games: 0,
+    bb: 0,
+    rb: 0,
+    reversePlayMode: 'on'
+  };
+  return getReverseCherryStats(fallbackData, machine).effectiveDenom;
 }
 
 function updateReverseCherryNote() {
-  const denom = getReverseCherryDenom(MACHINES[machineSelect.value]);
-  $('reverseCherryNote').textContent = `逆算ではリプレイ1/7.298固定、${MACHINES[machineSelect.value].name}の登録小役値からチェリー約1/${denom.toFixed(2)}を使用します。`;
+  const machine = MACHINES[machineSelect.value];
+  const preview = {
+    machineKey: machineSelect.value,
+    games: Math.round(clampNumber($('totalGames').value)),
+    bb: Math.round(clampNumber($('bbCount').value)),
+    rb: Math.round(clampNumber($('rbCount').value)),
+    reversePlayMode: normalizeReversePlayMode($('reverseCherryCapture').value)
+  };
+  const stats = getReverseCherryStats(preview, machine);
+  const modeLabel = stats.mode === 'on' ? 'Cherry ON' : 'Cherry OFF';
+  $('reverseCherryNote').textContent = `${modeLabel}：1BET補正・3BET分母補正を使用。チェリー約1/${stats.effectiveDenom.toFixed(2)}（${stats.source}）。`;
 }
 
 function updateDiffInputSize() {
@@ -904,7 +1051,7 @@ function getInputs() {
     priors: priorEnabled ? normalizeWeights(priorRaw) : Array(6).fill(1 / 6),
     roleMode: getRoleMode(),
     reverseRoleWeight: Number($('reverseRoleWeight').value) / 100,
-    reverseCherryCapture: clampNumber($('reverseCherryCapture').value, 0, 1),
+    reversePlayMode: normalizeReversePlayMode($('reverseCherryCapture').value),
     manualRoleWeight: Number($('manualRoleWeight').value) / 100,
     manualGames: manualGamesValue > 0 ? manualGamesValue : games,
     smallRoleCapture: clampNumber($('smallRoleCapture').value, 0, 1),
@@ -947,33 +1094,70 @@ function estimateGrape(data, machine) {
     };
   }
 
-  const cherryDenom = getReverseCherryDenom(machine);
-  const totalOut = data.games * 3 + data.diff;
+  const machineKey = data.machineKey || 'im_ex';
+  const profile = REVERSE_MACHINE_PROFILES[machineKey] || {};
+  const playMode = normalizeReversePlayMode(data.reversePlayMode ?? data.reverseCherryCapture);
+  const cherryStats = getReverseCherryStats({ ...data, reversePlayMode: playMode }, machine);
+  const bonusCount = Math.max(0, data.bb + data.rb);
+  const pOneBetReplay = 1 / REPLAY_DENOM;
+  const pOneBetGrape = 1 / (profile.oneBetGrapeDenom || 15);
+
+  let oneBetGames;
+  let oneBetGrapeCount;
+  if (playMode === 'on' && Number.isFinite(profile.onOneBetGamesPerBonus)) {
+    oneBetGames = bonusCount * profile.onOneBetGamesPerBonus;
+    oneBetGrapeCount = bonusCount * (profile.onOneBetGrapesPerBonus || 0);
+  } else if (playMode === 'on') {
+    const completionProbability = Math.max(0.05, 1 - pOneBetReplay - pOneBetGrape);
+    oneBetGames = bonusCount / completionProbability;
+    oneBetGrapeCount = oneBetGames * pOneBetGrape;
+  } else {
+    const completionProbability = Math.max(0.05, 1 - pOneBetReplay);
+    oneBetGames = bonusCount / completionProbability;
+    oneBetGrapeCount = 0;
+  }
+
+  oneBetGames = Math.min(Math.max(0, oneBetGames), data.games);
+  const normalGames = Math.max(0, data.games - oneBetGames);
+  const totalInput = normalGames * 3 + oneBetGames;
+  const totalOut = totalInput + data.diff;
   const bonusOut = data.bb * machine.bonusCoins[0] + data.rb * machine.bonusCoins[1];
-  const replayOut = data.games / REPLAY_DENOM * REPLAY_PAYOUT;
-  const cherryOut = data.games / cherryDenom * CHERRY_PAYOUT * data.reverseCherryCapture;
-  const grapeOut = totalOut - bonusOut - replayOut - cherryOut;
+  const replayOut3Bet = normalGames / REPLAY_DENOM * REPLAY_PAYOUT;
+  const replayOut1Bet = oneBetGames / REPLAY_DENOM;
+  const replayOut = replayOut3Bet + replayOut1Bet;
+  const cherryOut = normalGames / cherryStats.effectiveDenom * CHERRY_PAYOUT;
+  const oneBetGrapeOut = playMode === 'on'
+    ? oneBetGrapeCount * (profile.oneBetGrapePayout || GRAPE_PAYOUT)
+    : 0;
+  const grapeOut = totalOut - bonusOut - replayOut - cherryOut - oneBetGrapeOut;
   const grapeCount = grapeOut / GRAPE_PAYOUT;
-  const denominator = grapeCount > 0 ? data.games / grapeCount : Infinity;
+  const denominator = grapeCount > 0 ? normalGames / grapeCount : Infinity;
   const valid = Number.isFinite(denominator)
+    && normalGames > 0
     && grapeCount > 0
-    && grapeCount < data.games
+    && grapeCount < normalGames
     && denominator >= 3.5
     && denominator <= 12;
 
+  const modeLabel = playMode === 'on' ? 'Cherry ON' : 'Cherry OFF';
   let message = '';
   if (!valid) {
     message = '逆算値が現実的な範囲外です。差枚・回転数・ボーナス回数を確認してください。逆算ブドウは判定から除外しました。';
-  } else if (data.games < 3000) {
-    message = '3,000G未満の差枚逆算は誤差が大きいため参考値です。';
+  } else if (normalGames < 3000) {
+    message = `${modeLabel}・1BET補正済み。3,000G未満は差枚誤差の影響が大きいため参考値です。`;
   } else {
-    message = '差枚からの推定値です。ベル・ピエロ、目押しロス、データ機器の差を含むため、証拠強度を低めにしています。';
+    message = `${modeLabel}・1BET ${oneBetGames.toFixed(1)}Gを通常3BET分母から除外。${cherryStats.source}でチェリーを補正しています。`;
   }
 
   return {
+    modelVersion: REVERSE_MODEL_VERSION,
+    playMode,
+    totalInput,
     totalOut,
     bonusOut,
     replayOut,
+    replayOut3Bet,
+    replayOut1Bet,
     cherryOut,
     grapeOut,
     grapeCount,
@@ -981,7 +1165,16 @@ function estimateGrape(data, machine) {
     valid,
     skipped: false,
     message,
-    cherryDenom
+    cherryDenom: cherryStats.effectiveDenom,
+    cherryFullDenom: cherryStats.fullDenom,
+    cherrySource: cherryStats.source,
+    cherryCapture: cherryStats.capture,
+    settingWeights: cherryStats.weights,
+    oneBetGames,
+    oneBetGrapeCount,
+    oneBetGrapeOut,
+    normalGames,
+    profileNote: profile.sourceNote || ''
   };
 }
 
@@ -1013,7 +1206,7 @@ function getStandaloneGrapeData() {
     rb: Math.round(clampNumber($('grapeRBCount').value)),
     hasDiff,
     diff: hasDiff ? grapeDiffSign * Number(diffRaw) : null,
-    reverseCherryCapture: clampNumber($('grapeCherryCapture').value, 0, 1)
+    reversePlayMode: normalizeReversePlayMode($('grapeCherryCapture').value)
   };
 }
 
@@ -1030,8 +1223,9 @@ function updateStandaloneGrapeCalculator() {
   if (data.bb + data.rb > data.games) issues.push('BB＋RB回数が総回転数を超えています。');
   if (!data.hasDiff) issues.push('差枚を入力してください。');
 
-  const cherryDenom = getReverseCherryDenom(machine);
-  $('grapeCherryReference').textContent = `計算上のチェリー確率：約1/${cherryDenom.toFixed(2)}（選択機種の登録値から設定1〜6を平均）`;
+  const cherryStats = getReverseCherryStats(data, machine);
+  const modeLabel = cherryStats.mode === 'on' ? 'Cherry ON' : 'Cherry OFF';
+  $('grapeCherryReference').textContent = `${modeLabel}：チェリー約1/${cherryStats.effectiveDenom.toFixed(2)}（${cherryStats.source}）。${cherryStats.profile.sourceNote || ''}`;
   const grapeRole = machine.roles.grape;
   $('grapeMachineReference').textContent = grapeRole
     ? `登録ブドウ値：1/${Math.min(...grapeRole.denoms).toFixed(2)}〜1/${Math.max(...grapeRole.denoms).toFixed(2)}`
@@ -1067,7 +1261,11 @@ function updateStandaloneGrapeCalculator() {
   $('grapeReplayOutResult').textContent = formatCoins(result.replayOut);
   $('grapeCherryOutResult').textContent = formatCoins(result.cherryOut);
   $('grapePayoutResult').textContent = formatCoins(result.grapeOut);
-  $('grapeResultNote').textContent = result.message;
+  if ($('grapeNormalGamesResult')) $('grapeNormalGamesResult').textContent = `${Math.round(result.normalGames).toLocaleString('ja-JP')}G`;
+  if ($('grapeOneBetGamesResult')) $('grapeOneBetGamesResult').textContent = `${result.oneBetGames.toFixed(1)}G`;
+  if ($('grapeOneBetGrapeResult')) $('grapeOneBetGrapeResult').textContent = result.playMode === 'on' ? `${result.oneBetGrapeCount.toFixed(2)}回 / ${formatCoins(result.oneBetGrapeOut)}` : 'なし';
+  if ($('grapeCherryModelResult')) $('grapeCherryModelResult').textContent = `1/${result.cherryDenom.toFixed(2)}・${result.cherrySource}`;
+  $('grapeResultNote').textContent = `${result.message}${result.profileNote ? ` ${result.profileNote}` : ''}`;
 }
 
 function loadStandaloneGrapeSample() {
@@ -1077,7 +1275,7 @@ function loadStandaloneGrapeSample() {
   $('grapeRBCount').value = '21';
   $('grapeDiffCoins').value = '900';
   grapeDiffSign = 1;
-  $('grapeCherryCapture').value = '1';
+  $('grapeCherryCapture').value = 'on';
   updateStandaloneGrapeDiffSignButton();
   updateStandaloneGrapeCalculator();
   saveState();
@@ -1089,7 +1287,7 @@ function resetStandaloneGrape(save = true) {
   $('grapeBBCount').value = '';
   $('grapeRBCount').value = '';
   $('grapeDiffCoins').value = '';
-  $('grapeCherryCapture').value = '1';
+  $('grapeCherryCapture').value = 'off';
   grapeDiffSign = 1;
   updateStandaloneGrapeDiffSignButton();
   updateStandaloneGrapeCalculator();
@@ -2603,18 +2801,21 @@ function collectState() {
     priorValues: getPriorRawValues(),
     roleMode: getRoleMode(),
     reverseRoleWeight: $('reverseRoleWeight').value,
+    reversePlayMode: $('reverseCherryCapture').value,
     reverseCherryCapture: $('reverseCherryCapture').value,
     manualRoleGames: $('manualRoleGames').value,
     smallRoleCapture: $('smallRoleCapture').value,
     manualRoleWeight: $('manualRoleWeight').value,
     roleCounts: readRoleCounts(),
     grapeCalculator: {
+      modelVersion: REVERSE_MODEL_VERSION,
       machineKey: grapeMachineSelect.value,
       games: $('grapeGames').value,
       bb: $('grapeBBCount').value,
       rb: $('grapeRBCount').value,
       diffRaw: normalizeUnsignedNumericInput($('grapeDiffCoins').value),
       diffSign: grapeDiffSign,
+      playMode: $('grapeCherryCapture').value,
       cherryCapture: $('grapeCherryCapture').value
     }
   };
@@ -2650,7 +2851,7 @@ function loadState() {
       'totalGames','simpleBBCount','simpleRBCount',
       'singleBBCount','cherryBBCount','rareCherryBBCount','unknownBBCount',
       'singleRBCount','cherryRBCount','unknownRBCount',
-      'historyInput','currentGames','reverseRoleWeight','reverseCherryCapture',
+      'historyInput','currentGames','reverseRoleWeight',
       'manualRoleGames','smallRoleCapture','manualRoleWeight'
     ].forEach((id) => {
       if (state[id] !== undefined && $(id)) $(id).value = state[id];
@@ -2665,6 +2866,11 @@ function loadState() {
       updateDiffInputSize();
     }
 
+    if (state.reversePlayMode !== undefined) {
+      $('reverseCherryCapture').value = normalizeReversePlayMode(state.reversePlayMode);
+    } else if (state.reverseCherryCapture !== undefined) {
+      $('reverseCherryCapture').value = normalizeReversePlayMode(state.reverseCherryCapture);
+    }
     if (typeof state.reverseHistory === 'boolean') $('reverseHistory').checked = state.reverseHistory;
     if (typeof state.usePriorCorrection === 'boolean') $('usePriorCorrection').checked = state.usePriorCorrection;
 
@@ -2682,7 +2888,8 @@ function loadState() {
       if (grapeState.bb !== undefined) $('grapeBBCount').value = grapeState.bb;
       if (grapeState.rb !== undefined) $('grapeRBCount').value = grapeState.rb;
       if (grapeState.diffRaw !== undefined) $('grapeDiffCoins').value = normalizeUnsignedNumericInput(grapeState.diffRaw);
-      if (grapeState.cherryCapture !== undefined) $('grapeCherryCapture').value = grapeState.cherryCapture;
+      if (grapeState.playMode !== undefined) $('grapeCherryCapture').value = normalizeReversePlayMode(grapeState.playMode);
+      else if (grapeState.cherryCapture !== undefined) $('grapeCherryCapture').value = normalizeReversePlayMode(grapeState.cherryCapture);
       grapeDiffSign = Number(grapeState.diffSign) < 0 ? -1 : 1;
     } else {
       grapeMachineSelect.value = machineSelect.value;
@@ -2743,7 +2950,7 @@ function resetAll() {
   $('reverseHistory').checked = true;
   $('usePriorCorrection').checked = false;
   $('reverseRoleWeight').value = '25';
-  $('reverseCherryCapture').value = '1';
+  $('reverseCherryCapture').value = 'off';
   $('manualRoleGames').value = '';
   $('smallRoleCapture').value = '1';
   $('manualRoleWeight').value = '50';
@@ -2799,7 +3006,7 @@ function loadSample() {
   $('currentGames').value = '0';
   $('usePriorCorrection').checked = false;
   $('reverseRoleWeight').value = '25';
-  $('reverseCherryCapture').value = '1';
+  $('reverseCherryCapture').value = 'off';
   $('manualRoleGames').value = '1399';
   $('smallRoleCapture').value = '1';
   $('manualRoleWeight').value = '50';
@@ -3125,6 +3332,11 @@ function bindEvents() {
     saveState();
   });
   $('reverseRoleWeight').addEventListener('input', updateEvidenceWeightLabels);
+  $('reverseCherryCapture').addEventListener('change', () => {
+    updateReverseCherryNote();
+    updateRoleRates();
+    saveState();
+  });
   $('manualRoleWeight').addEventListener('input', updateEvidenceWeightLabels);
   $('manualRoleGames').addEventListener('input', updateRoleRates);
 
@@ -3163,13 +3375,18 @@ function bindEvents() {
   $('grapeDiffSignToggle').addEventListener('click', toggleStandaloneGrapeDiffSign);
   ['grapeGames','grapeBBCount','grapeRBCount','grapeCherryCapture','grapeMachineSelect']
     .forEach((id) => {
-      $(id).addEventListener('input', updateStandaloneGrapeCalculator);
-      $(id).addEventListener('change', updateStandaloneGrapeCalculator);
+      const recalcAndSave = () => {
+        updateStandaloneGrapeCalculator();
+        saveState();
+      };
+      $(id).addEventListener('input', recalcAndSave);
+      $(id).addEventListener('change', recalcAndSave);
     });
   $('grapeDiffCoins').addEventListener('input', () => {
     const normalized = normalizeUnsignedNumericInput($('grapeDiffCoins').value);
     if ($('grapeDiffCoins').value !== normalized) $('grapeDiffCoins').value = normalized;
     updateStandaloneGrapeCalculator();
+    saveState();
   });
 
   ['totalGames','simpleBBCount','simpleRBCount','singleBBCount','cherryBBCount','rareCherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']

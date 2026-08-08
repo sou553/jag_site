@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light dark">
-  <meta name="application-version" content="15.1.0">
+  <meta name="application-version" content="15.2.0">
   <meta name="application-schema-version" content="15">
   <meta name="application-data-version" content="2026.07.26-r2">
-  <meta name="application-build-id" content="20260809-003700-v15.1">
-  <title>6号機ジャグラー 設定推測ツール v15.1.0</title>
+  <meta name="application-build-id" content="20260809-020300-v15.2">
+  <title>6号機ジャグラー 設定推測ツール v15.2.0</title>
   <meta name="description" content="総回転数・BB・RB・任意の差枚・実測小役から6号機ジャグラーの設定別相対確率を計算し、ブドウ確率だけを逆算する独立ページにも対応したWebツールです。">
   <link rel="icon" type="image/png" href="./img/mini.jpg">
   <script>
@@ -21,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=15.1.0">
+  <link rel="stylesheet" href="style.css?v=15.2.0">
 </head>
 <body>
   <header class="site-header">
@@ -30,7 +30,7 @@
         <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
         <div class="header-title-row">
           <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
-          <button id="versionInfoButton" class="release-version-badge" type="button" aria-label="バージョン情報を開く">v15.1.0</button>
+          <button id="versionInfoButton" class="release-version-badge" type="button" aria-label="バージョン情報を開く">v15.2.0</button>
         </div>
         <p class="lead">BB・RB・任意の差枚・実測小役を総合判定<br><small>ボーナス履歴は区間分析と台データ自動同期に対応</small></p>
       </div>
@@ -304,15 +304,12 @@
               </div>
 
               <label class="setting-tile field">
-                <span class="setting-label">チェリー取得率</span>
+                <span class="setting-label">打ち方</span>
                 <select id="reverseCherryCapture">
-                  <option value="1">100%</option>
-                  <option value="0.9">90%</option>
-                  <option value="0.8">80%</option>
-                  <option value="0.5">50%</option>
-                  <option value="0">0%</option>
+                  <option value="off" selected>Cherry OFF（通常時適当押し）</option>
+                  <option value="on">Cherry ON（チェリー狙い＋ブドウ抜き）</option>
                 </select>
-                <small>取りこぼしに合わせて調整</small>
+                <small>1BET補正とブドウ抜きの有無まで切り替えます</small>
               </label>
 
               <div class="setting-tile range-field no-top-margin">
@@ -528,15 +525,12 @@
           </div>
 
           <label class="field grape-cherry-field" for="grapeCherryCapture">
-            <span>チェリー取得率</span>
+            <span>打ち方</span>
             <select id="grapeCherryCapture">
-              <option value="1">100%</option>
-              <option value="0.9">90%</option>
-              <option value="0.8">80%</option>
-              <option value="0.5">50%</option>
-              <option value="0">0%</option>
+              <option value="off" selected>Cherry OFF（通常時適当押し・ブドウ抜きなし）</option>
+              <option value="on">Cherry ON（チェリー狙い・ブドウ抜きあり）</option>
             </select>
-            <small id="grapeCherryReference">選択機種のチェリー参考値を使用します。</small>
+            <small id="grapeCherryReference">1BET補正・機種別チェリー補正を含めて計算します。</small>
           </label>
 
           <div id="grapeValidation" class="validation hidden" role="alert"></div>
@@ -570,11 +564,15 @@
             </article>
 
             <div class="grape-breakdown-grid">
-              <article><span>総アウト推定</span><strong id="grapeTotalOutResult">—</strong></article>
+              <article><span>補正後総投入＋差枚</span><strong id="grapeTotalOutResult">—</strong></article>
               <article><span>ボーナス払出</span><strong id="grapeBonusOutResult">—</strong></article>
               <article><span>リプレイ払出</span><strong id="grapeReplayOutResult">—</strong></article>
               <article><span>チェリー払出</span><strong id="grapeCherryOutResult">—</strong></article>
-              <article class="grape-breakdown-wide"><span>ブドウ相当払出</span><strong id="grapePayoutResult">—</strong></article>
+              <article><span>通常3BET分母</span><strong id="grapeNormalGamesResult">—</strong></article>
+              <article><span>推定1BETゲーム</span><strong id="grapeOneBetGamesResult">—</strong></article>
+              <article><span>1BETブドウ抜き</span><strong id="grapeOneBetGrapeResult">—</strong></article>
+              <article><span>チェリーモデル</span><strong id="grapeCherryModelResult">—</strong></article>
+              <article class="grape-breakdown-wide"><span>通常時ブドウ相当払出</span><strong id="grapePayoutResult">—</strong></article>
             </div>
 
             <div class="grape-reference-note">
@@ -584,11 +582,13 @@
 
             <section class="formula-panel grape-formula-panel">
               <h3>計算式</h3>
-              <pre>総アウト推定 = 3 × 総回転数 + 差枚
-推定ブドウ回数
-= (総アウト推定 − ボーナス払出 − リプレイ払出 − チェリー払出) ÷ 8
-推定ブドウ確率 = 総回転数 ÷ 推定ブドウ回数</pre>
-              <p>ベル・ピエロ、目押しロス、データ表示差は含まれないため、実測ブドウ回数ではなく参考値です。</p>
+              <pre>推定1BET G数 = ボーナス回数 × 打ち方別1BET補正
+通常3BET G数 = 総回転数 − 推定1BET G数
+補正後投入 = 3 × 通常3BET G数 + 1 × 推定1BET G数
+推定通常ブドウ回数
+= (補正後投入 + 差枚 − ボーナス − リプレイ − チェリー − 1BETブドウ) ÷ 8
+推定ブドウ確率 = 通常3BET G数 ÷ 推定通常ブドウ回数</pre>
+              <p>Cherry OFF/ONでチェリー取得・1BETブドウ抜きを切り替えます。チェリー確率は単純な設定1〜6平均ではなく、BB/RBから得た設定重みで機種別役確率を加重します。外部シミュレータの非公開係数までは再現していません。</p>
             </section>
           </div>
         </section>
@@ -1005,11 +1005,12 @@
 
         <section class="formula-panel">
           <h3>差枚からのブドウ逆算</h3>
-          <pre>総アウト推定 = 3 × 総回転数 + 差枚
+          <pre>通常3BET G数 = 総回転数 − 推定1BET G数
+補正後投入 = 3 × 通常3BET G数 + 推定1BET G数
 推定ブドウ回数
-= (総アウト推定 − ボーナス獲得 − リプレイ獲得 − チェリー獲得) ÷ 8</pre>
+= (補正後投入 + 差枚 − ボーナス − リプレイ − チェリー − 1BETブドウ) ÷ 8</pre>
           <p>
-            ベル、ピエロ、目押しロス、データ機器の差があるため、逆算ブドウは初期25%の弱い証拠として扱います。
+            1BETを通常ブドウの分母から除外し、Cherry ONでは1BETブドウ抜きも分離します。チェリーはBB/RBから求めた設定重みを使う機種別補正へ変更しています。逆算ブドウは差枚誤差を含むため、設定推測では初期25%の弱い証拠として扱います。
           </p>
         </section>
 
@@ -1026,12 +1027,12 @@
             <span id="versionStatusBadge" class="status-pill">確認中</span>
           </div>
           <div class="build-info-grid">
-            <article><span>アプリ</span><strong id="buildAppVersion">v15.1.0</strong></article>
+            <article><span>アプリ</span><strong id="buildAppVersion">v15.2.0</strong></article>
             <article><span>リリース</span><strong id="buildChannel">stable</strong></article>
             <article><span>保存形式</span><strong id="buildSchemaVersion">schema 15</strong></article>
             <article><span>データ</span><strong id="buildDataVersion">2026.07.26-r2</strong></article>
-            <article><span>ビルドID</span><strong id="buildId">20260809-003700-v15.1</strong></article>
-            <article><span>ビルド日時</span><strong id="buildTime">2026-08-08T15:37:00Z</strong></article>
+            <article><span>ビルドID</span><strong id="buildId">20260809-020300-v15.2</strong></article>
+            <article><span>ビルド日時</span><strong id="buildTime">2026-08-08T17:03:00Z</strong></article>
           </div>
           <div id="versionVerificationMessage" class="version-verification-message">version.jsonを確認しています。</div>
           <div class="build-action-row">
@@ -1049,12 +1050,12 @@
   </div>
 
   <footer class="site-footer">
-    <button id="footerVersionButton" type="button">v15.1.0</button>
+    <button id="footerVersionButton" type="button">v15.2.0</button>
     <span>schema 15</span>
     <span>data 2026.07.26-r2</span>
     <span id="footerBuildStatus">公開確認中</span>
   </footer>
 
-  <script src="app.js?v=15.1.0"></script>
+  <script src="app.js?v=15.2.0"></script>
 </body>
 </html>
