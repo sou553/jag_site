@@ -1,10 +1,10 @@
 {
-  "appVersion": "15.0.0",
-  "release": "v15.0.0",
+  "appVersion": "15.1.0",
+  "release": "v15.1.0",
   "channel": "stable",
   "schemaVersion": 15,
   "dataVersion": "2026.07.26-r2",
-  "assetVersion": "15.0.0",
-  "buildId": "20260726-131142-v15",
-  "builtAt": "2026-07-26T13:11:42Z"
+  "assetVersion": "15.1.0",
+  "buildId": "20260809-003700-v15.1",
+  "builtAt": "2026-08-08T15:37:00Z"
 }

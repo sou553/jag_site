@@ -220,14 +220,14 @@ const PRIOR_PRESETS = {
 };
 
 const APP_META = Object.freeze({
-  version: '15.0.0',
-  release: 'v15.0.0',
+  version: '15.1.0',
+  release: 'v15.1.0',
   channel: 'stable',
   schemaVersion: 15,
   dataVersion: '2026.07.26-r2',
-  assetVersion: '15.0.0',
-  buildId: '20260726-131142-v15',
-  builtAt: '2026-07-26T13:11:42Z'
+  assetVersion: '15.1.0',
+  buildId: '20260809-003700-v15.1',
+  builtAt: '2026-08-08T15:37:00Z'
 });
 const STORAGE_KEY = 'juggler-setting-analyzer';
 const LEGACY_STORAGE_KEYS = [
@@ -272,6 +272,15 @@ Object.entries(MACHINES).forEach(([key, machine]) => {
   option.textContent = `${machine.name}（${machine.introduced}）`;
   referenceMachineSelect.appendChild(option);
 });
+
+const grapeMachineSelect = $('grapeMachineSelect');
+Object.entries(MACHINES).forEach(([key, machine]) => {
+  const option = document.createElement('option');
+  option.value = key;
+  option.textContent = `${machine.name}（${machine.introduced}）`;
+  grapeMachineSelect.appendChild(option);
+});
+let grapeDiffSign = 1;
 
 function buildPriorEditor() {
   const editor = $('priorEditor');
@@ -974,6 +983,117 @@ function estimateGrape(data, machine) {
     message,
     cherryDenom
   };
+}
+
+function updateStandaloneGrapeDiffSignButton() {
+  const button = $('grapeDiffSignToggle');
+  if (!button) return;
+  const negative = grapeDiffSign < 0;
+  button.textContent = negative ? '−' : '＋';
+  button.classList.toggle('negative', negative);
+  button.setAttribute('aria-pressed', String(negative));
+  button.setAttribute('aria-label', negative ? '差枚はマイナス。押すとプラスへ変更' : '差枚はプラス。押すとマイナスへ変更');
+}
+
+function toggleStandaloneGrapeDiffSign() {
+  grapeDiffSign *= -1;
+  updateStandaloneGrapeDiffSignButton();
+  updateStandaloneGrapeCalculator();
+  saveState();
+}
+
+function getStandaloneGrapeData() {
+  const machineKey = grapeMachineSelect.value || machineSelect.value;
+  const diffRaw = normalizeUnsignedNumericInput($('grapeDiffCoins').value);
+  const hasDiff = diffRaw.length > 0;
+  return {
+    machineKey,
+    games: Math.round(clampNumber($('grapeGames').value)),
+    bb: Math.round(clampNumber($('grapeBBCount').value)),
+    rb: Math.round(clampNumber($('grapeRBCount').value)),
+    hasDiff,
+    diff: hasDiff ? grapeDiffSign * Number(diffRaw) : null,
+    reverseCherryCapture: clampNumber($('grapeCherryCapture').value, 0, 1)
+  };
+}
+
+function updateStandaloneGrapeCalculator() {
+  if (!grapeMachineSelect) return;
+  const data = getStandaloneGrapeData();
+  const machine = MACHINES[data.machineKey];
+  const validation = $('grapeValidation');
+  const empty = $('grapeResultEmpty');
+  const content = $('grapeResultContent');
+  const issues = [];
+
+  if (data.games <= 0) issues.push('総回転数を入力してください。');
+  if (data.bb + data.rb > data.games) issues.push('BB＋RB回数が総回転数を超えています。');
+  if (!data.hasDiff) issues.push('差枚を入力してください。');
+
+  const cherryDenom = getReverseCherryDenom(machine);
+  $('grapeCherryReference').textContent = `計算上のチェリー確率：約1/${cherryDenom.toFixed(2)}（選択機種の登録値から設定1〜6を平均）`;
+  const grapeRole = machine.roles.grape;
+  $('grapeMachineReference').textContent = grapeRole
+    ? `登録ブドウ値：1/${Math.min(...grapeRole.denoms).toFixed(2)}〜1/${Math.max(...grapeRole.denoms).toFixed(2)}`
+    : '登録ブドウ値：—';
+
+  if (issues.length) {
+    validation.textContent = issues.join(' ');
+    validation.classList.remove('hidden');
+    empty.classList.remove('hidden');
+    content.classList.add('hidden');
+    $('grapeLiveRate').textContent = '—';
+    return;
+  }
+
+  validation.classList.add('hidden');
+  const result = estimateGrape(data, machine);
+  empty.classList.add('hidden');
+  content.classList.remove('hidden');
+
+  if (!result.valid) {
+    $('grapeDenominatorResult').textContent = '算出範囲外';
+    $('grapeCountResult').textContent = '—';
+    $('grapeLiveRate').textContent = '—';
+  } else {
+    const rate = `1/${result.denominator.toFixed(3)}`;
+    $('grapeDenominatorResult').textContent = rate;
+    $('grapeCountResult').textContent = `${Math.round(result.grapeCount).toLocaleString('ja-JP')}回`;
+    $('grapeLiveRate').textContent = rate;
+  }
+
+  $('grapeTotalOutResult').textContent = formatCoins(result.totalOut);
+  $('grapeBonusOutResult').textContent = formatCoins(result.bonusOut);
+  $('grapeReplayOutResult').textContent = formatCoins(result.replayOut);
+  $('grapeCherryOutResult').textContent = formatCoins(result.cherryOut);
+  $('grapePayoutResult').textContent = formatCoins(result.grapeOut);
+  $('grapeResultNote').textContent = result.message;
+}
+
+function loadStandaloneGrapeSample() {
+  grapeMachineSelect.value = 'my5';
+  $('grapeGames').value = '6000';
+  $('grapeBBCount').value = '24';
+  $('grapeRBCount').value = '21';
+  $('grapeDiffCoins').value = '900';
+  grapeDiffSign = 1;
+  $('grapeCherryCapture').value = '1';
+  updateStandaloneGrapeDiffSignButton();
+  updateStandaloneGrapeCalculator();
+  saveState();
+}
+
+function resetStandaloneGrape(save = true) {
+  grapeMachineSelect.value = machineSelect.value || 'neo_im';
+  $('grapeGames').value = '';
+  $('grapeBBCount').value = '';
+  $('grapeRBCount').value = '';
+  $('grapeDiffCoins').value = '';
+  $('grapeCherryCapture').value = '1';
+  grapeDiffSign = 1;
+  updateStandaloneGrapeDiffSignButton();
+  updateStandaloneGrapeCalculator();
+  if (save) saveState();
 }
 
 function binomialLogLikelihood(n, x, probability) {
@@ -2033,6 +2153,13 @@ function setActiveTab(tabName, scrollTop = true) {
     referenceMachineSelect.value = machineSelect.value;
     renderMachineReference();
   }
+  if (tabName === 'grape' && !grapeMachineSelect.value) {
+    grapeMachineSelect.value = machineSelect.value;
+    updateStandaloneGrapeCalculator();
+  }
+
+  const mobileBar = document.querySelector('.mobile-bottom-bar');
+  if (mobileBar) mobileBar.classList.toggle('hidden', tabName !== 'input');
 
   document.querySelectorAll('.tab-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.tab === tabName);
@@ -2480,7 +2607,16 @@ function collectState() {
     manualRoleGames: $('manualRoleGames').value,
     smallRoleCapture: $('smallRoleCapture').value,
     manualRoleWeight: $('manualRoleWeight').value,
-    roleCounts: readRoleCounts()
+    roleCounts: readRoleCounts(),
+    grapeCalculator: {
+      machineKey: grapeMachineSelect.value,
+      games: $('grapeGames').value,
+      bb: $('grapeBBCount').value,
+      rb: $('grapeRBCount').value,
+      diffRaw: normalizeUnsignedNumericInput($('grapeDiffCoins').value),
+      diffSign: grapeDiffSign,
+      cherryCapture: $('grapeCherryCapture').value
+    }
   };
 }
 
@@ -2537,6 +2673,19 @@ function loadState() {
         $(`priorRange${index + 1}`).value = clampNumber(value, 0, 100);
         $(`priorValue${index + 1}`).value = clampNumber(value, 0, 100);
       });
+    }
+
+    if (state.grapeCalculator) {
+      const grapeState = state.grapeCalculator;
+      if (MACHINES[grapeState.machineKey]) grapeMachineSelect.value = grapeState.machineKey;
+      if (grapeState.games !== undefined) $('grapeGames').value = grapeState.games;
+      if (grapeState.bb !== undefined) $('grapeBBCount').value = grapeState.bb;
+      if (grapeState.rb !== undefined) $('grapeRBCount').value = grapeState.rb;
+      if (grapeState.diffRaw !== undefined) $('grapeDiffCoins').value = normalizeUnsignedNumericInput(grapeState.diffRaw);
+      if (grapeState.cherryCapture !== undefined) $('grapeCherryCapture').value = grapeState.cherryCapture;
+      grapeDiffSign = Number(grapeState.diffSign) < 0 ? -1 : 1;
+    } else {
+      grapeMachineSelect.value = machineSelect.value;
     }
 
     pendingRoleCounts = state.roleCounts || {};
@@ -2603,6 +2752,7 @@ function resetAll() {
   pendingRoleCounts = {};
   renderRoleInputs();
   setRoleMode('reverse');
+  resetStandaloneGrape(false);
 
   $('resultContent').classList.add('hidden');
   $('emptyResult').classList.remove('hidden');
@@ -3007,6 +3157,21 @@ function bindEvents() {
   $('referenceCoinMode').addEventListener('change', renderMachineReference);
   $('referenceInterpolationRate').addEventListener('input', renderMachineReference);
 
+  $('grapeCalculateButton').addEventListener('click', updateStandaloneGrapeCalculator);
+  $('grapeLoadSample').addEventListener('click', loadStandaloneGrapeSample);
+  $('grapeReset').addEventListener('click', () => resetStandaloneGrape(true));
+  $('grapeDiffSignToggle').addEventListener('click', toggleStandaloneGrapeDiffSign);
+  ['grapeGames','grapeBBCount','grapeRBCount','grapeCherryCapture','grapeMachineSelect']
+    .forEach((id) => {
+      $(id).addEventListener('input', updateStandaloneGrapeCalculator);
+      $(id).addEventListener('change', updateStandaloneGrapeCalculator);
+    });
+  $('grapeDiffCoins').addEventListener('input', () => {
+    const normalized = normalizeUnsignedNumericInput($('grapeDiffCoins').value);
+    if ($('grapeDiffCoins').value !== normalized) $('grapeDiffCoins').value = normalized;
+    updateStandaloneGrapeCalculator();
+  });
+
   ['totalGames','simpleBBCount','simpleRBCount','singleBBCount','cherryBBCount','rareCherryBBCount','unknownBBCount','singleRBCount','cherryRBCount','unknownRBCount']
     .forEach((id) => {
       $(id).addEventListener('input', () => {
@@ -3054,6 +3219,8 @@ updateLiveRates();
 updateRoleRates();
 updatePriorTotal();
 updateHistoryViews();
+updateStandaloneGrapeDiffSignButton();
+updateStandaloneGrapeCalculator();
 referenceMachineSelect.value = machineSelect.value;
 renderMachineReference();
 renderAllMachineComparison();

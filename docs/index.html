@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#10172a">
   <meta name="color-scheme" content="light dark">
-  <meta name="application-version" content="15.0.0">
+  <meta name="application-version" content="15.1.0">
   <meta name="application-schema-version" content="15">
   <meta name="application-data-version" content="2026.07.26-r2">
-  <meta name="application-build-id" content="20260726-131142-v15">
-  <title>6号機ジャグラー 設定推測ツール v15.0.0</title>
-  <meta name="description" content="総回転数・BB・RB・任意の差枚・実測小役から6号機ジャグラーの設定別相対確率を計算し、ボーナス履歴を台データへ自動同期するWebツールです。">
+  <meta name="application-build-id" content="20260809-003700-v15.1">
+  <title>6号機ジャグラー 設定推測ツール v15.1.0</title>
+  <meta name="description" content="総回転数・BB・RB・任意の差枚・実測小役から6号機ジャグラーの設定別相対確率を計算し、ブドウ確率だけを逆算する独立ページにも対応したWebツールです。">
   <link rel="icon" type="image/png" href="./img/mini.jpg">
   <script>
     (() => {
@@ -21,7 +21,7 @@
       document.documentElement.dataset.theme = theme;
     })();
   </script>
-  <link rel="stylesheet" href="style.css?v=15.0.0">
+  <link rel="stylesheet" href="style.css?v=15.1.0">
 </head>
 <body>
   <header class="site-header">
@@ -30,7 +30,7 @@
         <p class="eyebrow">JUGGLER SETTING ANALYZER</p>
         <div class="header-title-row">
           <h1>6号機ジャグラー<br class="mobile-only">設定推測ツール</h1>
-          <button id="versionInfoButton" class="release-version-badge" type="button" aria-label="バージョン情報を開く">v15.0.0</button>
+          <button id="versionInfoButton" class="release-version-badge" type="button" aria-label="バージョン情報を開く">v15.1.0</button>
         </div>
         <p class="lead">BB・RB・任意の差枚・実測小役を総合判定<br><small>ボーナス履歴は区間分析と台データ自動同期に対応</small></p>
       </div>
@@ -58,6 +58,7 @@
   <nav class="tab-nav" aria-label="画面切り替え">
     <button class="tab-button active" data-tab="input" type="button"><span class="tab-label-long">入力</span><span class="tab-label-short">入力</span></button>
     <button class="tab-button" data-tab="result" type="button"><span class="tab-label-long">結果</span><span class="tab-label-short">結果</span></button>
+    <button class="tab-button" data-tab="grape" type="button"><span class="tab-label-long">ブドウ逆算</span><span class="tab-label-short">逆算</span></button>
     <button class="tab-button" data-tab="history" type="button"><span class="tab-label-long">履歴分析</span><span class="tab-label-short">履歴</span></button>
     <button class="tab-button" data-tab="reference" type="button"><span class="tab-label-long">機種データ</span><span class="tab-label-short">データ</span></button>
     <button class="tab-button" data-tab="about" type="button"><span class="tab-label-long">仕様</span><span class="tab-label-short">説明</span></button>
@@ -468,6 +469,128 @@
               </div>
             </div>
           </details>
+        </section>
+      </div>
+    </section>
+
+    <section id="tab-grape" class="tab-page" data-page="grape">
+      <div class="grape-page-grid">
+        <section class="panel grape-input-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">GRAPE REVERSE CALCULATOR</p>
+              <h2>ブドウ確率の逆算</h2>
+              <p class="panel-description grape-page-description">設定推測は行わず、総回転数・BB・RB・差枚から推定ブドウ回数と確率だけを計算します。</p>
+            </div>
+            <span class="status-pill">独立計算</span>
+          </div>
+
+          <div class="field full-field">
+            <label for="grapeMachineSelect">機種</label>
+            <select id="grapeMachineSelect"></select>
+          </div>
+
+          <div class="grape-input-grid">
+            <label class="quick-field">
+              <span>総回転数</span>
+              <div class="number-box">
+                <input id="grapeGames" inputmode="numeric" type="number" min="0" step="1" placeholder="総回転数">
+                <em>G</em>
+              </div>
+            </label>
+
+            <div class="quick-field diff-field">
+              <span>差枚</span>
+              <div class="signed-number-box diff-input-layout">
+                <button id="grapeDiffSignToggle" class="sign-toggle" type="button" aria-label="差枚のプラスとマイナスを切り替える" aria-pressed="false">＋</button>
+                <div class="grape-diff-value-box">
+                  <input id="grapeDiffCoins" inputmode="numeric" type="text" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" placeholder="差枚">
+                  <span>枚</span>
+                </div>
+              </div>
+            </div>
+
+            <label class="quick-field bb-field">
+              <span>BB回数</span>
+              <div class="number-box">
+                <input id="grapeBBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                <em>回</em>
+              </div>
+            </label>
+
+            <label class="quick-field rb-field">
+              <span>RB回数</span>
+              <div class="number-box">
+                <input id="grapeRBCount" inputmode="numeric" type="number" min="0" step="1" placeholder="回数">
+                <em>回</em>
+              </div>
+            </label>
+          </div>
+
+          <label class="field grape-cherry-field" for="grapeCherryCapture">
+            <span>チェリー取得率</span>
+            <select id="grapeCherryCapture">
+              <option value="1">100%</option>
+              <option value="0.9">90%</option>
+              <option value="0.8">80%</option>
+              <option value="0.5">50%</option>
+              <option value="0">0%</option>
+            </select>
+            <small id="grapeCherryReference">選択機種のチェリー参考値を使用します。</small>
+          </label>
+
+          <div id="grapeValidation" class="validation hidden" role="alert"></div>
+
+          <div class="grape-action-row">
+            <button id="grapeCalculateButton" class="button primary" type="button">ブドウ確率を逆算</button>
+            <button id="grapeLoadSample" class="button soft" type="button">入力例</button>
+            <button id="grapeReset" class="button soft danger-text" type="button">クリア</button>
+          </div>
+        </section>
+
+        <section class="panel grape-result-panel" aria-live="polite">
+          <div class="panel-heading">
+            <div>
+              <p class="section-kicker">RESULT</p>
+              <h2>逆算結果</h2>
+            </div>
+            <span id="grapeLiveRate" class="status-pill grape-live-rate">—</span>
+          </div>
+
+          <div id="grapeResultEmpty" class="empty-state compact-empty grape-empty-state">
+            <div class="grape-icon">8</div>
+            <p>入力すると推定ブドウ確率を表示します。</p>
+          </div>
+
+          <div id="grapeResultContent" class="hidden">
+            <article class="grape-main-result">
+              <span>推定ブドウ確率</span>
+              <strong id="grapeDenominatorResult">—</strong>
+              <small>推定ブドウ回数 <b id="grapeCountResult">—</b></small>
+            </article>
+
+            <div class="grape-breakdown-grid">
+              <article><span>総アウト推定</span><strong id="grapeTotalOutResult">—</strong></article>
+              <article><span>ボーナス払出</span><strong id="grapeBonusOutResult">—</strong></article>
+              <article><span>リプレイ払出</span><strong id="grapeReplayOutResult">—</strong></article>
+              <article><span>チェリー払出</span><strong id="grapeCherryOutResult">—</strong></article>
+              <article class="grape-breakdown-wide"><span>ブドウ相当払出</span><strong id="grapePayoutResult">—</strong></article>
+            </div>
+
+            <div class="grape-reference-note">
+              <strong id="grapeMachineReference">登録ブドウ値：—</strong>
+              <p id="grapeResultNote">—</p>
+            </div>
+
+            <section class="formula-panel grape-formula-panel">
+              <h3>計算式</h3>
+              <pre>総アウト推定 = 3 × 総回転数 + 差枚
+推定ブドウ回数
+= (総アウト推定 − ボーナス払出 − リプレイ払出 − チェリー払出) ÷ 8
+推定ブドウ確率 = 総回転数 ÷ 推定ブドウ回数</pre>
+              <p>ベル・ピエロ、目押しロス、データ表示差は含まれないため、実測ブドウ回数ではなく参考値です。</p>
+            </section>
+          </div>
         </section>
       </div>
     </section>
@@ -903,12 +1026,12 @@
             <span id="versionStatusBadge" class="status-pill">確認中</span>
           </div>
           <div class="build-info-grid">
-            <article><span>アプリ</span><strong id="buildAppVersion">v15.0.0</strong></article>
+            <article><span>アプリ</span><strong id="buildAppVersion">v15.1.0</strong></article>
             <article><span>リリース</span><strong id="buildChannel">stable</strong></article>
             <article><span>保存形式</span><strong id="buildSchemaVersion">schema 15</strong></article>
             <article><span>データ</span><strong id="buildDataVersion">2026.07.26-r2</strong></article>
-            <article><span>ビルドID</span><strong id="buildId">20260726-131142-v15</strong></article>
-            <article><span>ビルド日時</span><strong id="buildTime">2026-07-26T13:11:42Z</strong></article>
+            <article><span>ビルドID</span><strong id="buildId">20260809-003700-v15.1</strong></article>
+            <article><span>ビルド日時</span><strong id="buildTime">2026-08-08T15:37:00Z</strong></article>
           </div>
           <div id="versionVerificationMessage" class="version-verification-message">version.jsonを確認しています。</div>
           <div class="build-action-row">
@@ -926,12 +1049,12 @@
   </div>
 
   <footer class="site-footer">
-    <button id="footerVersionButton" type="button">v15.0.0</button>
+    <button id="footerVersionButton" type="button">v15.1.0</button>
     <span>schema 15</span>
     <span>data 2026.07.26-r2</span>
     <span id="footerBuildStatus">公開確認中</span>
   </footer>
 
-  <script src="app.js?v=15.0.0"></script>
+  <script src="app.js?v=15.1.0"></script>
 </body>
 </html>
